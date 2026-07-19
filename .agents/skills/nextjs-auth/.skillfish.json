@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "nextjs-auth",
+  "owner": "bradtaylorsf",
+  "repo": "alphaagent-team",
+  "path": "plugins/aai-stack-nextjs/skills/nextjs-auth",
+  "branch": "main",
+  "sha": "d30a996553b94686cf106ecab1d7a0d4efb44fd7",
+  "source": "manual"
+}
