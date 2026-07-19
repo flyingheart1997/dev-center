@@ -37,7 +37,32 @@ The coding arena supports two distinct evaluation pipelines depending on the lan
    * This provides a live, interactive preview panel of the UI candidate is building.
    * Real-time rendering is done client-side. The code is then analyzed by Gemini for structure, clean component breakdown, styling logic, and best practices to provide a grading score.
 
+### E. Candidate Draft Application & Screening Reminders
+* **Partial Application Save**: Candidates are not required to complete their application form and AI pre-screening in a single session. They can fill out forms partially, saving their progress.
+* **Applicant Lifecycle**:
+  * `Draft`: Form filled partially and saved, but not yet submitted.
+  * `Applied`: Form submitted; candidate is ready but has not started AI pre-screening.
+  * `Screening_In_Progress`: Candidate has started the voice/coding tests but has not finished all required rounds.
+  * `Screening_Completed`: Pre-screening is fully done, and results are graded.
+  * `Qualified` / `Rejected` / `Hired`: Subsequent recruitment stages.
+* **Notification Engine (Reminders)**: Background cron jobs (Resend + Queue scheduler) periodically check for applications stuck in `Draft` or `Applied` (but screening incomplete) and trigger email reminders (e.g. "Complete your pre-screening for TCS Software Engineer role").
+
+### F. Role-Based Access Control (RBAC) Permissions
+Employee roles enforce distinct administrative and functional permissions:
+* **Admin**:
+  * Full access to Organization Settings, Billing & subscriptions (Stripe).
+  * Can invite, approve (`Pending_Approval` queue), and remove any employee (Admin, Recruiter, or Interviewer) from the organization.
+  * Can create, edit, draft, or delete Jobs and Form Templates.
+* **Recruiter (HR)**:
+  * Can invite, approve, and remove Recruiters and Interviewers (cannot remove Admins).
+  * Can create, edit, draft, or delete Jobs and Form Templates.
+* **Interviewer**:
+  * Read-only access to Job definitions and Candidate resumes/profiles.
+  * Restricted from creating/deleting jobs or managing employees.
+  * Allowed to join assigned live interview rooms, write markdown notes, and fill out candidate scorecards.
+
 ---
+
 
 ## 2. Project Folder Architecture
 
@@ -140,7 +165,7 @@ To monetize the platform, we will implement a multi-tiered subscription model us
 
 To scale to millions of users, `dev-center` uses a **Shared-Database, Single-Schema (Tenant Isolated)** design:
 
-* Every workspace table contains an `organization_id` column.
+* Every workspace table contains an `organization_id` column (or links to one transitively).
 * Database queries are always filtered by `organization_id` of the logged-in employee.
 * Strict tenant checks are enforced at the API/Server Action level.
 
@@ -148,26 +173,36 @@ To scale to millions of users, `dev-center` uses a **Shared-Database, Single-Sch
 erDiagram
     ORGANIZATION ||--o{ EMPLOYEE : employs
     ORGANIZATION ||--o{ JOB : posts
-    EMPLOYEE ||--o{ INTERVIEW : conducts
-    JOB ||--o{ APPLICANT : receives
+    ORGANIZATION ||--o{ JOB_BOARD_CONNECTION : connects
+    ORGANIZATION ||--o| SUBSCRIPTION : has
+    ORGANIZATION ||--o{ QUESTION : owns
     JOB ||--o{ JOB_ROUND : defines
-    APPLICANT ||--o{ SCREENING_SCORE : gets
+    JOB_ROUND ||--o{ JOB_ROUND_INTERVIEWER : has
+    EMPLOYEE ||--o{ JOB_ROUND_INTERVIEWER : conducts
     APPLICANT ||--o{ INTERVIEW : undergoes
+    EMPLOYEE ||--o{ INTERVIEW : conducts
+    APPLICANT ||--o| SCREENING_RESULT : has
+    JOB ||--o{ JOB_BOARD_POST : distributes
+    SUBSCRIPTION }|--|| PLAN : references
+    SKILL ||--o{ JOB_SKILL : mapped
+    JOB ||--o{ JOB_SKILL : requires
+    SKILL ||--o{ APPLICANT_SKILL : mapped
+    APPLICANT ||--o{ APPLICANT_SKILL : possesses
+    USER ||--o{ NOTIFICATION : receives
+    ORGANIZATION ||--o{ EMPLOYEE_INVITATION : issues
     
     ORGANIZATION {
         string id PK
         string name
         string domain
-        string subscription_tier
     }
     
     EMPLOYEE {
         string id PK
         string organization_id FK
-        string name
-        string email
+        string user_id FK
         string role "Admin, Recruiter, Interviewer"
-        string status "Active, Pending"
+        string status "Active, Pending_Approval"
     }
 
     JOB {
@@ -176,25 +211,184 @@ erDiagram
         string title
         string description
         string status "Draft, Active, Completed"
-        jsonb custom_form_fields
+        string employment_type "Full_Time, Part_Time, Contract, Internship"
+        string experience_level "Entry, Mid, Senior, Lead, Executive"
+        float salary_min
+        float salary_max
+        string currency
+        string location
+        string remote_type "Onsite, Hybrid, Remote"
+        datetime published_at
+        datetime closing_date
+    }
+
+    SKILL {
+        string id PK
+        string name
+    }
+
+    JOB_SKILL {
+        string id PK
+        string job_id FK
+        string skill_id FK
+    }
+
+    APPLICANT_SKILL {
+        string id PK
+        string applicant_id FK
+        string skill_id FK
     }
 
     JOB_ROUND {
         string id PK
         string job_id FK
         int order_index
-        string title "System Design, HR, etc."
-        string interviewer_ids "Array of Employee IDs"
+        string title
+        string category "Screening, Technical, Design, Behavioral, Management"
+        int duration_minutes
+    }
+
+    JOB_ROUND_INTERVIEWER {
+        string id PK
+        string round_id FK
+        string employee_id FK
     }
 
     APPLICANT {
         string id PK
         string job_id FK
+        string user_id FK "nullable"
+        string current_round_id FK "nullable"
         string name
         string email
-        string status "Applied, Qualified, In-Interview, Hired, Rejected"
+        string status "Applied, Screening, Shortlisted, Interviewing, Offer, OfferAccepted, OfferRejected, Hired, Rejected, Withdrawn, OnHold"
         string resume_url
-        jsonb custom_form_responses
+        string phone
+        string linkedin_url
+        string github_url
+        string portfolio_url
+        int experience_years
+        string current_company
+        string current_designation
+        float expected_salary
+        float current_salary
+        int notice_period
+        string location
+        boolean country_permit
+        boolean criminal_record
+        boolean is_existing_employee
+        string source "e.g. LinkedIn, Indeed"
+        jsonb form_responses
+        int screening_score
+    }
+
+    SCREENING_RESULT {
+        string id PK
+        string applicant_id FK
+        string ai_model "e.g. gemini-2.0-flash"
+        int resume_score
+        string resume_feedback
+        int voice_score
+        string voice_feedback
+        string voice_transcript
+        int coding_score
+        string coding_feedback
+        jsonb coding_source_tree
+        int personality_score
+        int overall_score
+        string recommendation "Strong_Hire, Hire, No_Hire, Strong_No_Hire"
+    }
+
+    INTERVIEW {
+        string id PK
+        string applicant_id FK
+        string job_round_id FK
+        string interviewer_id FK
+        string status "Scheduled, Completed, Cancelled, Absent"
+        datetime start_time
+        datetime end_time
+        string meeting_link
+        string livekit_room_id
+        int technical_score
+        int communication_score
+        int problem_solving_score
+        int culture_score
+        int overall_score
+        string recommendation "Strong_Hire, Hire, No_Hire, Strong_No_Hire"
+        string feedback
+    }
+
+    JOB_BOARD_CONNECTION {
+        string id PK
+        string organization_id FK
+        string provider "LINKEDIN, INDEED, NAUKRI, MONSTER, GLASSDOOR, WELLFOUND, GREENHOUSE, LEVER"
+        jsonb credentials "Encrypted access tokens"
+        string status "Connected, Expired, Disconnected"
+    }
+
+    JOB_BOARD_POST {
+        string id PK
+        string job_id FK
+        string provider "LINKEDIN, INDEED, NAUKRI, MONSTER, GLASSDOOR, WELLFOUND, GREENHOUSE, LEVER"
+        string external_job_id "nullable"
+        string url "External redirection link"
+        string status "Pending, Posted, Failed"
+        string error_message "nullable"
+        datetime posted_at
+    }
+
+    PLAN {
+        string id PK
+        string name "Free, Pro, Enterprise"
+        int price
+        int active_jobs_limit
+        int ai_credits_limit
+    }
+
+    SUBSCRIPTION {
+        string id PK
+        string organization_id FK
+        string plan_id FK
+        string stripe_customer_id
+        string stripe_subscription_id
+        string stripe_price_id
+        datetime stripe_current_period_end
+    }
+
+    QUESTION {
+        string id PK
+        string organization_id FK
+        boolean is_system
+        string title
+        string description
+        string category "Coding, System_Design, System_Architecture, Behavioral, Technical_Theory, Business_Case"
+        string difficulty "Easy, Medium, Hard"
+        array tags
+        array languages
+        int time_limit
+        int memory_limit
+        jsonb test_cases
+        jsonb starter_code
+        string solution_code
+    }
+
+    NOTIFICATION {
+        string id PK
+        string user_id FK
+        string title
+        string content
+        boolean is_read
+        string type "System, Application_Update, Interview_Scheduled, Screening_Completed, Employee_Invite"
+        string action_url
+    }
+
+    EMPLOYEE_INVITATION {
+        string id PK
+        string email
+        string role "Admin, Recruiter, Interviewer"
+        string token
+        string organization_id FK
+        datetime expires_at
     }
 ```
 

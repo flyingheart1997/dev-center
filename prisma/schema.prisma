@@ -1,0 +1,598 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+enum EmployeeRole {
+  Admin
+  Recruiter
+  Interviewer
+}
+
+enum EmployeeStatus {
+  Active
+  Pending_Approval
+}
+
+enum JobStatus {
+  Draft
+  Active
+  Completed
+}
+
+enum ApplicantStatus {
+  Applied
+  Screening
+  Shortlisted
+  Interviewing
+  Offer
+  OfferAccepted
+  OfferRejected
+  Hired
+  Rejected
+  Withdrawn
+  OnHold
+}
+
+enum Recommendation {
+  Strong_Hire
+  Hire
+  No_Hire
+  Strong_No_Hire
+}
+
+enum EmploymentType {
+  Full_Time
+  Part_Time
+  Contract
+  Internship
+}
+
+enum ExperienceLevel {
+  Entry
+  Mid
+  Senior
+  Lead
+  Executive
+}
+
+enum RemoteType {
+  Onsite
+  Hybrid
+  Remote
+}
+
+enum RoundCategory {
+  Screening
+  Technical
+  Design
+  Behavioral
+  Management
+}
+
+enum QuestionCategory {
+  Coding
+  System_Design
+  System_Architecture
+  Behavioral
+  Technical_Theory
+  Business_Case
+}
+
+enum InterviewStatus {
+  Scheduled
+  Completed
+  Cancelled
+  Absent
+}
+
+enum JobBoardProvider {
+  LINKEDIN
+  INDEED
+  NAUKRI
+  MONSTER
+  GLASSDOOR
+  WELLFOUND
+  GREENHOUSE
+  LEVER
+}
+
+enum ConnectionStatus {
+  Connected
+  Expired
+  Disconnected
+}
+
+enum JobBoardPostStatus {
+  Pending
+  Posted
+  Failed
+}
+
+enum Difficulty {
+  Easy
+  Medium
+  Hard
+}
+
+enum NotificationType {
+  System
+  Application_Update
+  Interview_Scheduled
+  Screening_Completed
+  Employee_Invite
+}
+
+enum Language {
+  javascript
+  typescript
+  python
+  go
+  java
+  cpp
+  c
+  csharp
+  ruby
+  rust
+  php
+}
+
+enum SubmissionStatus {
+  Pending
+  Running
+  Accepted
+  Wrong_Answer
+  Runtime_Error
+  Time_Limit_Exceeded
+  Memory_Limit_Exceeded
+  Compilation_Error
+}
+
+model Organization {
+  id           String               @id @default(uuid())
+  name         String
+  domain       String?              @unique
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  employees    Employee[]
+  jobs         Job[]
+  connections  JobBoardConnection[]
+  subscription Subscription?
+  questions    Question[]
+  invitations  EmployeeInvitation[]
+}
+
+model Employee {
+  id             String                @id @default(uuid())
+  organizationId String
+  userId         String
+  role           EmployeeRole          @default(Interviewer)
+  status         EmployeeStatus        @default(Pending_Approval)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interviews     Interview[]
+  jobRounds      JobRoundInterviewer[]
+
+  @@unique([organizationId, userId])
+}
+
+model Job {
+  id              String         @id @default(uuid())
+  organizationId  String
+  title           String
+  description     String
+  status          JobStatus      @default(Draft)
+  employmentType  EmploymentType @default(Full_Time)
+  experienceLevel ExperienceLevel @default(Mid)
+  salaryMin       Float?
+  salaryMax       Float?
+  currency        String         @default("USD")
+  location        String?
+  remoteType      RemoteType     @default(Onsite)
+  publishedAt     DateTime?
+  closingDate     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rounds        JobRound[]
+  applicants    Applicant[]
+  jobBoardPosts JobBoardPost[]
+  skills        JobSkill[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model JobRound {
+  id                String                 @id @default(uuid())
+  jobId             String
+  orderIndex        Int
+  title             String
+  category          RoundCategory          @default(Technical)
+  durationMinutes   Int?                   @default(45)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  interviews        Interview[]
+  interviewers      JobRoundInterviewer[]
+  currentApplicants Applicant[]            @relation("CurrentRound")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, orderIndex])
+}
+
+model JobRoundInterviewer {
+  id         String   @id @default(uuid())
+  roundId    String
+  employeeId String
+
+  round    JobRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, employeeId])
+}
+
+model Applicant {
+  id                  String           @id @default(uuid())
+  jobId               String
+  userId              String?          // Optional: links application to logged-in User
+  currentRoundId      String?          // Links to active JobRound
+  name                String
+  email               String
+  status              ApplicantStatus  @default(Applied)
+  resumeUrl           String?
+  phone               String?
+  linkedinUrl         String?
+  githubUrl           String?
+  portfolioUrl        String?
+  experienceYears     Int?
+  currentCompany      String?
+  currentDesignation  String?
+  expectedSalary      Float?
+  currentSalary       Float?
+  noticePeriod        Int?             // notice period in days
+  location            String?
+  countryPermit       Boolean?         // Work permit status
+  criminalRecord      Boolean?         // Background check parameter
+  isExistingEmployee  Boolean?         // Referral tracking
+  source              String?          // e.g. "LinkedIn", "Indeed"
+  formResponses       Json?            // Stores any extra custom form questions
+  screeningScore      Int?             // Overall AI screening score (0-100)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  interviews          Interview[]
+  screeningResult     ScreeningResult?
+  skills              ApplicantSkill[]
+  questionSubmissions QuestionSubmission[]
+
+  job          Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentRound JobRound? @relation("CurrentRound", fields: [currentRoundId], references: [id], onDelete: SetNull)
+
+  @@unique([jobId, email])
+  @@index([jobId])
+  @@index([status])
+  @@index([currentRoundId])
+  @@index([email])
+}
+
+model ScreeningResult {
+  id                      String          @id @default(uuid())
+  applicantId             String          @unique
+  aiModel                 String?
+  resumeScore             Int?
+  resumeFeedback          String?         @db.Text
+  voiceScore              Int?
+  voiceFeedback           String?         @db.Text
+  voiceTranscript         String?         @db.Text
+  codingScore             Int?
+  codingFeedback          String?         @db.Text
+  codingSourceTree        Json?           // Candidate source code JSON
+  personalityScore        Int?            // Personality/behavior trait matching
+  overallScore            Int?            // Aggregated AI score
+  recommendation          Recommendation? @default(Hire)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  applicant               Applicant       @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+}
+
+model Interview {
+  id                    String          @id @default(uuid())
+  applicantId           String
+  jobRoundId            String
+  interviewerId         String          // Required interviewer
+  status                InterviewStatus @default(Scheduled)
+  startTime             DateTime
+  endTime               DateTime
+  meetingLink           String?
+  livekitRoomId         String?
+  technicalScore        Int?            // Technical skill rating (e.g. 1-5)
+  communicationScore    Int?            // Communication rating (e.g. 1-5)
+  problemSolvingScore   Int?            // Problem solving rating (e.g. 1-5)
+  cultureScore          Int?            // Cultural fit rating (e.g. 1-5)
+  overallScore          Int?            // Aggregated rating (e.g. 1-5)
+  recommendation        Recommendation?
+  feedback              String?         @db.Text // Detailed notes
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  applicant           Applicant            @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  jobRound            JobRound             @relation(fields: [jobRoundId], references: [id], onDelete: Cascade)
+  interviewer         Employee             @relation(fields: [interviewerId], references: [id], onDelete: Cascade)
+  interviewQuestions  InterviewQuestion[]
+  questionSubmissions QuestionSubmission[]
+
+  @@index([interviewerId])
+  @@index([startTime])
+  @@index([status])
+}
+
+model Skill {
+  id         String           @id @default(uuid())
+  name       String           @unique
+  jobs       JobSkill[]
+  applicants ApplicantSkill[]
+}
+
+model JobSkill {
+  id      String @id @default(uuid())
+  jobId   String
+  skillId String
+
+  job   Job   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, skillId])
+  @@index([jobId])
+  @@index([skillId])
+}
+
+model ApplicantSkill {
+  id          String @id @default(uuid())
+  applicantId String
+  skillId     String
+
+  applicant Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  skill     Skill     @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([applicantId, skillId])
+  @@index([applicantId])
+  @@index([skillId])
+}
+
+model JobBoardConnection {
+  id             String           @id @default(uuid())
+  organizationId String
+  provider       JobBoardProvider
+  credentials    Json             // Encrypted OAuth credentials or API keys
+  status         ConnectionStatus @default(Connected)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+}
+
+model JobBoardPost {
+  id            String             @id @default(uuid())
+  jobId         String
+  provider      JobBoardProvider
+  externalJobId String?            // Unique ID returned by external API
+  url           String?            // External URL to the post
+  status        JobBoardPostStatus @default(Pending)
+  errorMessage  String?            @db.Text
+  postedAt      DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, provider])
+}
+
+model Plan {
+  id              String         @id @default(uuid())
+  name            String         @unique // "Free", "Pro", "Enterprise"
+  price           Int            // Price in cents (e.g. 0, 14900)
+  activeJobsLimit Int            // e.g. 2 for Free, 15 for Pro, -1 for unlimited
+  aiCreditsLimit  Int            // e.g. 10 for Free, 250 for Pro, -1 for unlimited
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id                     String       @id @default(uuid())
+  organizationId         String       @unique
+  planId                 String       // Required relation to Plan
+  stripeCustomerId       String?      @unique
+  stripeSubscriptionId   String?      @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                   Plan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+}
+
+model Question {
+  id             String           @id @default(uuid())
+  organizationId String           // required, "system" for defaults
+  title          String
+  description    String           @db.Text
+  category       QuestionCategory @default(Coding)
+  difficulty     Difficulty       @default(Medium)
+  tags           String[]
+  languages      Language[]
+  timeLimit      Int?
+  memoryLimit    Int?
+  starterCode    Json?
+  solutionCode   Json?
+  hint           Json?
+  timeComplexity  String?
+  spaceComplexity String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  testCaseList   QuestionTestCase[]
+  submissions    QuestionSubmission[]
+  interviews     InterviewQuestion[]
+
+  @@unique([organizationId, title]) // Enforces unique question names per organization/system scope
+  @@index([organizationId])
+  @@index([category])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  content   String           @db.Text
+  isRead    Boolean          @default(false)
+  type      NotificationType @default(System)
+  actionUrl String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model EmployeeInvitation {
+  id             String       @id @default(uuid())
+  email          String
+  role           EmployeeRole @default(Interviewer)
+  token          String       @unique
+  organizationId String
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+}
+
+// NextAuth standard models
+model User {
+  id            String         @id @default(cuid())
+  name          String?
+  email         String?        @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  employees     Employee[] // A user can have one or more Employee profiles
+  applicants    Applicant[] // A user can apply to multiple jobs across orgs
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id         String   @id @default(uuid()) // Added for clean mapping
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model QuestionTestCase {
+  id             String   @id @default(uuid())
+  questionId     String
+  input          String   @db.Text
+  expectedOutput String   @db.Text
+  isHidden       Boolean  @default(true)
+  weight         Int      @default(1)
+  explanation    String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([isHidden])
+}
+
+model QuestionSubmission {
+  id              String           @id @default(uuid())
+  questionId      String
+  applicantId     String?
+  interviewId     String?
+  language        Language
+  sourceCode      String           @db.Text
+  status          SubmissionStatus
+  runtime         Float?           // AI-estimated execution time (ms)
+  memory          Float?           // AI-estimated memory usage (MB)
+  score           Float?           // Calculated score (0-100 or weighted)
+  passedTestCases Int              @default(0)
+  totalTestCases  Int              @default(0)
+  testCaseResults Json?            // Detailed list of passed/failed test cases
+  compilerOutput  String?          @db.Text // AI compiler errors / logs
+  createdAt       DateTime         @default(now())
+
+  question        Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  applicant       Applicant?       @relation(fields: [applicantId], references: [id], onDelete: SetNull)
+  interview       Interview?       @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+
+  @@index([questionId])
+  @@index([applicantId])
+  @@index([interviewId])
+  @@index([status])
+}
+
+model InterviewQuestion {
+  id          String   @id @default(uuid())
+  interviewId String
+  questionId  String
+  order       Int
+  maxScore    Float    @default(100)
+  score       Float?   // Actual score given by AI or interviewer
+  notes       String?  @db.Text // Interviewer's notes for this question
+
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([interviewId, questionId])
+  @@index([questionId])
+}

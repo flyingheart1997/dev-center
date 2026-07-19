@@ -9,18 +9,29 @@ This roadmap outlines the implementation schedule, architectural steps, database
 
 ### 1. Database Setup & Prisma Schema
 * Define standard models in `prisma/schema.prisma`:
-  * `Organization`: Details subscription tier, custom domain, and name.
-  * `Employee`: Links user to an organization, role (`Admin`, `Recruiter`, `Interviewer`), and status (`Active`, `Pending`).
-  * `Job`: Custom forms definition (`custom_form_fields` JSON), state (`Draft`, `Active`, `Completed`), and settings.
-  * `JobRound`: Defines interview sequence, orders, and designated interviewers.
-  * NextAuth standard tables: `User`, `Account`, `Session`, `VerificationToken` linked via Prisma adapter.
+  * `Organization`: Custom domain, name, and linked `Subscription`.
+  * `Employee`: Links user to an organization, role (`Admin`, `Recruiter`, `Interviewer`), and status (`Active`, `Pending_Approval`).
+  * `Job`: Title, description, state (`Draft`, `Active`, `Completed`), and candidate parameters (employment type, experience level, salary range, remote type, and publishing/closing dates).
+  * `Skill`: Global library of technical/non-technical competencies.
+  * `JobSkill` / `ApplicantSkill`: Junction tables mapping jobs and candidates to their required or possessed skills.
+  * `JobRound`: Defines interview sequence, order, category (`Screening`, `Technical`, `Design`, `Behavioral`, `Management`), duration, and references assigned interviewers via `JobRoundInterviewer` junction model.
+  * `Interview`: Stores scheduled sessions between a candidate (`Applicant`) and a specific `Employee` (Interviewer) for a particular `JobRound`, including status, timestamps, Google Meet/LiveKit links, and granular scorecard metrics (technical, communication, problem solving, culture, overall, recommendation). Admins and HR have the ability to re-assign or update the interviewer for any scheduled session.
+  * `JobBoardConnection`: Stores organization credentials (OAuth tokens / API keys) for connected job boards (LinkedIn, Indeed, Naukri, Monster, Wellfound, Greenhouse, Lever).
+  * `JobBoardPost`: Tracks which jobs are posted on which connected boards, including status (`Pending`, `Posted`, `Failed`), external job IDs, redirect URL, and API error logs.
+  * `Plan`: Dedicated database-driven tiers (Free, Pro, Enterprise) detailing pricing and limits.
+  * `Subscription`: Stores Stripe customer identifiers and references the active `Plan`.
+  * `Question`: Dynamic library of challenges containing isSystem flags, tags, language constraints, execution limits, difficulty levels, and unique organization-scoped names.
+  * `Notification`: Stores unread/read in-app alerts with deep-linking support.
+  * `EmployeeInvitation`: Tracks pending recruiter-sent email onboardings with expiration limits.
+  * NextAuth standard tables: `User`, `Account`, `Session`, `VerificationToken` linked via Prisma adapter. `User` links to both `Employee` and `Applicant` profiles.
 
 ### 2. Custom NextAuth.js Configuration
 * Setup `auth.ts` under `features/auth/` (Auth.js v5):
   * Configure Credentials provider, Google OAuth, GitHub OAuth, and LinkedIn OAuth.
   * Setup callbacks to attach `organization_id`, `role`, and `employee_status` to the JWT token and session cookies.
-  * Block login if an employee is in the `Pending` queue until approved.
+  * Block login if an employee is in the `Pending_Approval` queue until approved.
   * Setup transactional email validation using **Resend** for onboarding.
+  * Enforce role-based endpoint protection (tRPC middleware & Next.js Server Actions) where only `Admin` and `Recruiter` can create/delete jobs and manage employees, while `Interviewer` gets read-only access to candidates and assigned rooms.
 
 ### 3. Organization Workspace & Employee Invite Flow
 * **Super Admin / Recruiter Dashboard (`app/(dashboard)/`)**:
@@ -28,21 +39,16 @@ This roadmap outlines the implementation schedule, architectural steps, database
   * **Employee Management**: Send invitation links with signed tokens. 
   * **Auto-Discovery Queue Table**: Display list of employees who signed up using the corporate email domain, with "Approve" or "Reject" actions.
 
-### 4. Job Creation & Custom Questionnaire Builder
+### 4. Job Creation & Reusable Form Template Integration
 * **Job Creation Wizard (`features/jobs/components/JobWizard.tsx`)**:
-  * Inputs: Job title, department, description, status.
-  * **Round Configurer**: Dynamic input to add/order rounds (e.g. Round 1: Coding, Round 2: Architecture) and assign specific interviewers from the organization's employee list.
-  * **Form Questionnaire Builder**: Checkboxes/toggles to select screening templates:
-    * *Ex-employee confirmation*
-    * *Visa status & sponsorship requirements*
-    * *Criminal background check disclosures*
-    * *Custom written questions (text areas)*
-  * Save fields as structured JSON in `Job.custom_form_fields`.
+  * Inputs: Job title, department, description, status, employment type, experience level, salary range, location, remote type, skills (selected from skills library).
+  * **Round Configurer**: Dynamic input to add/order rounds (e.g. Round 1: Coding, Round 2: Architecture) and assign specific interviewers (linked via `JobRoundInterviewer` table).
+  * **Custom Questions**: Option to define extra custom form fields stored as a JSON schema in the applicant responses.
 
 ### 5. Public Job Board & Application Portal
 * Public Landing Page (`app/page.tsx`): Displays all `Active` jobs across organizations.
 * **Smart Filter**: Search by title, department, or location.
-* Candidate Job Application Page: Renders standard forms + custom questionnaires defined by the recruiter.
+* Candidate Job Application Page: Supports saving application draft (`Draft` status), allowing candidates to resume and finish application and pre-screening at a later point. Renders standard contact details, social links, permits, background questions, and custom fields.
 
 ---
 
@@ -78,6 +84,10 @@ This roadmap outlines the implementation schedule, architectural steps, database
 ### 4. Qualification Logic
 * A qualification dashboard checks if Candidate Score >= 60%.
 * Candidates crossing the threshold are marked as `Qualified` and highlighted in the Recruiter dashboard.
+
+### 5. Automated Reminders Queue
+* Implement a background worker queue (using BullMQ or cron triggers) that detects applications stuck in `Draft` or `Applied` (incomplete screening) state for more than 24 hours.
+* Dispatches email notifications via Resend prompting the candidate to complete their pending form and pre-screening rounds.
 
 ---
 
@@ -118,15 +128,20 @@ This roadmap outlines the implementation schedule, architectural steps, database
 ### 2. Stripe Subscriptions
 * Implement Stripe billing endpoints inside `features/billing/actions/`:
   * Create subscription checkouts for Pro ($149/mo) and Enterprise (custom).
-  * Webhook listener to update the organization's tier inside `Organization.subscription_tier` on payment events.
+  * Webhook listener to update the organization's `Subscription` status and active `Plan` link on payment events.
   * Enforce feature limitations at server layout levels (e.g., block job creation if active job count > tier limit).
 
-### 3. Redis Caching & Connection Poolers
+### 3. Job Board Syndication & Connections
+* Build OAuth connection pages for LinkedIn and Indeed, and API Key integration page for Naukri (saving encrypted credentials to the `JobBoardConnection` table).
+* Create check-boxes in the job creation/edit wizard to allow recruiters to select connected syndication boards.
+* Create BullMQ jobs that pick up new job posts and use the connected connections to sync the job description with external platforms, recording the resulting external IDs in the `JobBoardPost` model.
+
+### 4. Redis Caching & Connection Poolers
 * Use Redis to store session caches and cache public job listings to minimize database query latency.
 * Connect database through Prisma Accelerate or Supabase Connection Pooler to avoid database exhaustion.
 
-### 4. Background Queues (BullMQ)
+### 5. Background Queues (BullMQ)
 * Setup BullMQ workers to run heavy tasks in the background:
   * Parse resume PDFs in worker threads.
   * Dispatch bulk notifications.
-  * Handle job syndication to LinkedIn / Naukri APIs.
+  * Execute background job board distribution APIs.
