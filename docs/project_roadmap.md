@@ -9,21 +9,34 @@ This roadmap outlines the implementation schedule, architectural steps, database
 
 ### 1. Database Setup & Prisma Schema
 * Define standard models in `prisma/schema.prisma`:
-  * `Organization`: Custom domain, name, and linked `Subscription`.
-  * `Employee`: Links user to an organization, role (`Admin`, `Recruiter`, `Interviewer`), and status (`Active`, `Pending_Approval`).
-  * `Job`: Title, description, state (`Draft`, `Active`, `Completed`), and candidate parameters (employment type, experience level, salary range, remote type, and publishing/closing dates).
+  * `Organization`: Custom domain, name, data retention policies, and linked `Subscription`.
+  * `BusinessUnit`: Business division or segment under the organization (e.g., TCS Digital, TCS BPS).
+  * `Branch`: Physical office locations mapped under a business unit with localized parameters (code, timezone, country, city, address, head office flag).
+  * `Department`: Functional department inside a branch (e.g., Engineering, HR, Legal).
+  * `Employee`: Links user to an organization with optional hierarchical scopes (`businessUnitId`, `branchId`, `departmentId`), role (`Owner`, `Global_Admin`, `Business_Unit_Admin`, `Branch_Admin`, `Recruiter`, `Interviewer`, `Hiring_Manager`), and status (`Active`, `Pending_Approval`).
+  * `Job`: Title, description, state (`Draft`, `Pending_Approval`, `Active`, `Completed`), scoping mappings (`businessUnitId`, `branchId`, `departmentId`), internal mobility flags (`isInternalOnly`), and candidate parameters. Links to `Application[]` and `JobApproval[]`.
+  * `Candidate`: Master profile of a job seeker containing contact info, work permit status, tags, and GDPR consent tracks.
+  * `Application`: Connects `Candidate` to a `Job`, tracking state, resume URLs, screening scores, referral links (`referrerId`), structured rejection reasons, and references a candidate's `Offer`.
   * `Skill`: Global library of technical/non-technical competencies.
-  * `JobSkill` / `ApplicantSkill`: Junction tables mapping jobs and candidates to their required or possessed skills.
+  * `JobSkill` / `CandidateSkill`: Junction tables mapping jobs and candidates to their required or possessed skills.
   * `JobRound`: Defines interview sequence, order, category (`Screening`, `Technical`, `Design`, `Behavioral`, `Management`), duration, and references assigned interviewers via `JobRoundInterviewer` junction model.
-  * `Interview`: Stores scheduled sessions between a candidate (`Applicant`) and a specific `Employee` (Interviewer) for a particular `JobRound`, including status, timestamps, Google Meet/LiveKit links, and granular scorecard metrics (technical, communication, problem solving, culture, overall, recommendation). Admins and HR have the ability to re-assign or update the interviewer for any scheduled session.
-  * `JobBoardConnection`: Stores organization credentials (OAuth tokens / API keys) for connected job boards (LinkedIn, Indeed, Naukri, Monster, Wellfound, Greenhouse, Lever).
+  * `Interview`: Stores scheduled sessions between an `Application` and assigned interview panels, including status (`Scheduled`, `Reschedule_Requested`, etc.), timestamps, meeting links, and references to evaluations.
+  * `RescheduleRequest`: Tracks reschedule petitions from candidates or interviewers with proposed alternative time slots and approval states.
+  * `AvailabilitySlot`: Captures interviewer and candidate free time windows to prevent double-booking.
+  * `TalentPool` / `TalentPoolCandidate`: Enables building candidate CRM talent communities and tagging top applicants for future roles.
+  * `Scorecard`: Individual interviewer scorecard ratings (technical, communication, problem solving, culture, overall, recommendation) and feedback filled by a specific employee per interview.
+  * `JobApproval`: Tracks internal organizational approval logs for releasing a job requisition.
+  * `Offer`: Stores salary package, start dates, and status for job offers sent to candidates.
+  * `OfferApproval`: Tracks internal workflows for approving candidate job offer releases.
+  * `JobBoardConnection`: Stores organization or branch-scoped credentials (OAuth tokens / API keys) for connected job boards (LinkedIn, Indeed, Naukri, Monster, Wellfound, Greenhouse, Lever).
   * `JobBoardPost`: Tracks which jobs are posted on which connected boards, including status (`Pending`, `Posted`, `Failed`), external job IDs, redirect URL, and API error logs.
-  * `Plan`: Dedicated database-driven tiers (Free, Pro, Enterprise) detailing pricing and limits.
+  * `Plan`: Dedicated database-driven tiers (Free, Pro, Enterprise) detailing pricing and structural limits (`activeJobsLimit`, `aiCreditsLimit`, `maxBusinessUnits`, `maxBranches`, `maxEmployees`).
   * `Subscription`: Stores Stripe customer identifiers and references the active `Plan`.
   * `Question`: Dynamic library of challenges containing isSystem flags, tags, language constraints, execution limits, difficulty levels, and unique organization-scoped names.
   * `Notification`: Stores unread/read in-app alerts with deep-linking support.
-  * `EmployeeInvitation`: Tracks pending recruiter-sent email onboardings with expiration limits.
-  * NextAuth standard tables: `User`, `Account`, `Session`, `VerificationToken` linked via Prisma adapter. `User` links to both `Employee` and `Applicant` profiles.
+  * `EmployeeInvitation`: Tracks pending recruiter-sent email onboardings with expiration limits and initial scope assignments (`businessUnitId`, `branchId`, `departmentId`).
+  * `AuditLog`: Enterprise compliance audit trails tracking administrative actions, role updates, application status shifts, payload diff snapshots, and IP origins.
+  * NextAuth standard tables: `User`, `Account`, `Session`, `VerificationToken` linked via Prisma adapter. `User` links to both `Employee` and `Candidate` profiles.
 
 ### 2. Custom NextAuth.js Configuration
 * Setup `auth.ts` under `features/auth/` (Auth.js v5):
@@ -31,7 +44,7 @@ This roadmap outlines the implementation schedule, architectural steps, database
   * Setup callbacks to attach `organization_id`, `role`, and `employee_status` to the JWT token and session cookies.
   * Block login if an employee is in the `Pending_Approval` queue until approved.
   * Setup transactional email validation using **Resend** for onboarding.
-  * Enforce role-based endpoint protection (tRPC middleware & Next.js Server Actions) where only `Admin` and `Recruiter` can create/delete jobs and manage employees, while `Interviewer` gets read-only access to candidates and assigned rooms.
+  * Enforce role and scope-based endpoint protection (tRPC middleware & Next.js Server Actions) verifying that actions are restricted based on employee's Role and corresponding target resource scopes (`GLOBAL`, `BUSINESS_UNIT`, `BRANCH`, `DEPARTMENT`).
 
 ### 3. Organization Workspace & Employee Invite Flow
 * **Super Admin / Recruiter Dashboard (`app/(dashboard)/`)**:
@@ -41,7 +54,7 @@ This roadmap outlines the implementation schedule, architectural steps, database
 
 ### 4. Job Creation & Reusable Form Template Integration
 * **Job Creation Wizard (`features/jobs/components/JobWizard.tsx`)**:
-  * Inputs: Job title, department, description, status, employment type, experience level, salary range, location, remote type, skills (selected from skills library).
+  * Inputs: Job title, scoping drop-downs (Business Unit, Branch, Department), description, status, employment type, experience level, salary range, location, remote type, skills (selected from skills library).
   * **Round Configurer**: Dynamic input to add/order rounds (e.g. Round 1: Coding, Round 2: Architecture) and assign specific interviewers (linked via `JobRoundInterviewer` table).
   * **Custom Questions**: Option to define extra custom form fields stored as a JSON schema in the applicant responses.
 

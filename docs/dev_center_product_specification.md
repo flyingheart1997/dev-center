@@ -47,19 +47,23 @@ The coding arena supports two distinct evaluation pipelines depending on the lan
   * `Qualified` / `Rejected` / `Hired`: Subsequent recruitment stages.
 * **Notification Engine (Reminders)**: Background cron jobs (Resend + Queue scheduler) periodically check for applications stuck in `Draft` or `Applied` (but screening incomplete) and trigger email reminders (e.g. "Complete your pre-screening for TCS Software Engineer role").
 
-### F. Role-Based Access Control (RBAC) Permissions
-Employee roles enforce distinct administrative and functional permissions:
-* **Admin**:
-  * Full access to Organization Settings, Billing & subscriptions (Stripe).
-  * Can invite, approve (`Pending_Approval` queue), and remove any employee (Admin, Recruiter, or Interviewer) from the organization.
-  * Can create, edit, draft, or delete Jobs and Form Templates.
-* **Recruiter (HR)**:
-  * Can invite, approve, and remove Recruiters and Interviewers (cannot remove Admins).
-  * Can create, edit, draft, or delete Jobs and Form Templates.
-* **Interviewer**:
-  * Read-only access to Job definitions and Candidate resumes/profiles.
-  * Restricted from creating/deleting jobs or managing employees.
-  * Allowed to join assigned live interview rooms, write markdown notes, and fill out candidate scorecards.
+### F. Role-Based Access Control (RBAC) & Scope-Based Permissions
+Employee permissions are determined by a combination of their **Role** and their **Scope** (Global, Business Unit, Branch, Department):
+
+* **Roles**:
+  * **Owner**: Ultimate administrative control over the entire Organization, including billing, subscription setup, custom domain verification, and system settings.
+  * **Global Admin**: Full read/write administrative access across the entire organization (all Business Units, Branches, and Departments).
+  * **Business Unit Admin**: Administrative control restricted to a specific Business Unit (and all its child branches/departments).
+  * **Branch Admin**: Administrative control restricted to a specific physical or regional Branch (and all its child departments).
+  * **Recruiter**: Responsible for candidate sourcing, job creation, and screening pipelines. Can only operate within their assigned scope (Global, BU, Branch, or Department).
+  * **Hiring Manager**: Oversees candidate reviews, provides feedback, and makes final hiring decisions within their assigned scope.
+  * **Interviewer**: Read-only access to jobs and resumes. Allowed to join assigned live interview rooms, write markdown notes, and fill out candidate scorecards.
+
+* **Scopes**:
+  * **GLOBAL**: Access to all resources across the organization.
+  * **BUSINESS_UNIT**: Access restricted to a specific business unit (e.g., TCS Digital).
+  * **BRANCH**: Access restricted to a specific location branch (e.g., Pune).
+  * **DEPARTMENT**: Access restricted to a specific department (e.g., Engineering).
 
 ---
 
@@ -171,46 +175,100 @@ To scale to millions of users, `dev-center` uses a **Shared-Database, Single-Sch
 
 ```mermaid
 erDiagram
+    ORGANIZATION ||--o{ BUSINESS_UNIT : defines
+    BUSINESS_UNIT ||--o{ BRANCH : contains
+    BRANCH ||--o{ DEPARTMENT : groups
     ORGANIZATION ||--o{ EMPLOYEE : employs
+    BUSINESS_UNIT ||--o{ EMPLOYEE : scopes
+    BRANCH ||--o{ EMPLOYEE : scopes
+    DEPARTMENT ||--o{ EMPLOYEE : scopes
     ORGANIZATION ||--o{ JOB : posts
+    BUSINESS_UNIT ||--o{ JOB : scopes
+    BRANCH ||--o{ JOB : scopes
+    DEPARTMENT ||--o{ JOB : scopes
     ORGANIZATION ||--o{ JOB_BOARD_CONNECTION : connects
     ORGANIZATION ||--o| SUBSCRIPTION : has
     ORGANIZATION ||--o{ QUESTION : owns
     JOB ||--o{ JOB_ROUND : defines
     JOB_ROUND ||--o{ JOB_ROUND_INTERVIEWER : has
     EMPLOYEE ||--o{ JOB_ROUND_INTERVIEWER : conducts
-    APPLICANT ||--o{ INTERVIEW : undergoes
+    CANDIDATE ||--o{ APPLICATION : applies
+    JOB ||--o{ APPLICATION : receives
+    APPLICATION ||--o{ INTERVIEW : undergoes
     EMPLOYEE ||--o{ INTERVIEW : conducts
-    APPLICANT ||--o| SCREENING_RESULT : has
+    INTERVIEW ||--o{ SCORECARD : reviews
+    EMPLOYEE ||--o{ SCORECARD : submits
+    APPLICATION ||--o| SCREENING_RESULT : has
     JOB ||--o{ JOB_BOARD_POST : distributes
     SUBSCRIPTION }|--|| PLAN : references
     SKILL ||--o{ JOB_SKILL : mapped
     JOB ||--o{ JOB_SKILL : requires
-    SKILL ||--o{ APPLICANT_SKILL : mapped
-    APPLICANT ||--o{ APPLICANT_SKILL : possesses
+    SKILL ||--o{ CANDIDATE_SKILL : mapped
+    CANDIDATE ||--o{ CANDIDATE_SKILL : possesses
     USER ||--o{ NOTIFICATION : receives
     ORGANIZATION ||--o{ EMPLOYEE_INVITATION : issues
+    JOB ||--o{ JOB_APPROVAL : requests
+    EMPLOYEE ||--o{ JOB_APPROVAL : signs
+    APPLICATION ||--o| OFFER : creates
+    OFFER ||--o{ OFFER_APPROVAL : requests
+    EMPLOYEE ||--o{ OFFER_APPROVAL : signs
     
     ORGANIZATION {
         string id PK
         string name
         string domain
+        int data_retention_days
+    }
+
+    BUSINESS_UNIT {
+        string id PK
+        string organization_id FK
+        string name
+        boolean is_active
+    }
+
+    BRANCH {
+        string id PK
+        string organization_id FK
+        string business_unit_id FK
+        string name
+        string code
+        string timezone
+        string country
+        string city
+        string address
+        boolean is_head_office
+        boolean is_active
+    }
+
+    DEPARTMENT {
+        string id PK
+        string organization_id FK
+        string branch_id FK
+        string name
+        boolean is_active
     }
     
     EMPLOYEE {
         string id PK
         string organization_id FK
+        string business_unit_id FK "nullable"
+        string branch_id FK "nullable"
+        string department_id FK "nullable"
         string user_id FK
-        string role "Admin, Recruiter, Interviewer"
+        string role "Owner, Global_Admin, Business_Unit_Admin, Branch_Admin, Recruiter, Interviewer, Hiring_Manager"
         string status "Active, Pending_Approval"
     }
 
     JOB {
         string id PK
         string organization_id FK
+        string business_unit_id FK "nullable"
+        string branch_id FK "nullable"
+        string department_id FK "nullable"
         string title
         string description
-        string status "Draft, Active, Completed"
+        string status "Draft, Pending_Approval, Active, Completed"
         string employment_type "Full_Time, Part_Time, Contract, Internship"
         string experience_level "Entry, Mid, Senior, Lead, Executive"
         float salary_min
@@ -218,6 +276,7 @@ erDiagram
         string currency
         string location
         string remote_type "Onsite, Hybrid, Remote"
+        boolean is_internal_only
         datetime published_at
         datetime closing_date
     }
@@ -233,9 +292,9 @@ erDiagram
         string skill_id FK
     }
 
-    APPLICANT_SKILL {
+    CANDIDATE_SKILL {
         string id PK
-        string applicant_id FK
+        string candidate_id FK
         string skill_id FK
     }
 
@@ -254,15 +313,11 @@ erDiagram
         string employee_id FK
     }
 
-    APPLICANT {
+    CANDIDATE {
         string id PK
-        string job_id FK
         string user_id FK "nullable"
-        string current_round_id FK "nullable"
         string name
         string email
-        string status "Applied, Screening, Shortlisted, Interviewing, Offer, OfferAccepted, OfferRejected, Hired, Rejected, Withdrawn, OnHold"
-        string resume_url
         string phone
         string linkedin_url
         string github_url
@@ -270,21 +325,37 @@ erDiagram
         int experience_years
         string current_company
         string current_designation
-        float expected_salary
-        float current_salary
-        int notice_period
         string location
         boolean country_permit
         boolean criminal_record
         boolean is_existing_employee
+        boolean consent_given
+        datetime consent_timestamp
+        array tags
+    }
+
+    APPLICATION {
+        string id PK
+        string job_id FK
+        string candidate_id FK
+        string referrer_id FK "nullable"
+        string current_round_id FK "nullable"
+        string status "Applied, Screening, Shortlisted, Interviewing, Offer, OfferAccepted, OfferRejected, Hired, Rejected, Withdrawn, OnHold"
+        string resume_url
+        float expected_salary
+        float current_salary
+        int notice_period
         string source "e.g. LinkedIn, Indeed"
+        string rejection_reason "nullable"
+        string rejection_notes "nullable"
         jsonb form_responses
         int screening_score
+        boolean allow_cross_branch_sharing
     }
 
     SCREENING_RESULT {
         string id PK
-        string applicant_id FK
+        string application_id FK
         string ai_model "e.g. gemini-2.0-flash"
         int resume_score
         string resume_feedback
@@ -301,14 +372,53 @@ erDiagram
 
     INTERVIEW {
         string id PK
-        string applicant_id FK
+        string application_id FK
         string job_round_id FK
-        string interviewer_id FK
-        string status "Scheduled, Completed, Cancelled, Absent"
+        string status "Scheduled, Reschedule_Requested, Completed, Cancelled, Absent"
+        boolean is_rescheduled
         datetime start_time
         datetime end_time
         string meeting_link
         string livekit_room_id
+    }
+
+    RESCHEDULE_REQUEST {
+        string id PK
+        string interview_id FK
+        string requested_by_id
+        string requested_by "Candidate, Interviewer"
+        string reason
+        jsonb proposed_slots "nullable"
+        string status "Pending, Approved, Rejected"
+    }
+
+    AVAILABILITY_SLOT {
+        string id PK
+        string employee_id FK "nullable"
+        string candidate_id FK "nullable"
+        datetime start_time
+        datetime end_time
+        boolean is_booked
+    }
+
+    TALENT_POOL {
+        string id PK
+        string organization_id FK
+        string name
+        string description
+    }
+
+    TALENT_POOL_CANDIDATE {
+        string id PK
+        string talent_pool_id FK
+        string candidate_id FK
+        datetime added_at
+    }
+
+    SCORECARD {
+        string id PK
+        string interview_id FK
+        string interviewer_id FK
         int technical_score
         int communication_score
         int problem_solving_score
@@ -318,9 +428,40 @@ erDiagram
         string feedback
     }
 
+    JOB_APPROVAL {
+        string id PK
+        string job_id FK
+        string approver_id FK
+        string status "Pending, Approved, Rejected"
+        string feedback "nullable"
+        datetime approved_at "nullable"
+    }
+
+    OFFER {
+        string id PK
+        string application_id FK
+        float offered_salary
+        string currency
+        datetime target_start_date
+        string status "Draft, Pending_Approval, Approved, Sent, Accepted, Rejected, Withdrawn"
+        datetime created_at
+        datetime updated_at
+    }
+
+    OFFER_APPROVAL {
+        string id PK
+        string offer_id FK
+        string approver_id FK
+        string status "Pending, Approved, Rejected"
+        string feedback "nullable"
+        datetime approved_at "nullable"
+    }
+
     JOB_BOARD_CONNECTION {
         string id PK
         string organization_id FK
+        string business_unit_id FK "nullable"
+        string branch_id FK "nullable"
         string provider "LINKEDIN, INDEED, NAUKRI, MONSTER, GLASSDOOR, WELLFOUND, GREENHOUSE, LEVER"
         jsonb credentials "Encrypted access tokens"
         string status "Connected, Expired, Disconnected"
@@ -343,6 +484,9 @@ erDiagram
         int price
         int active_jobs_limit
         int ai_credits_limit
+        int max_business_units
+        int max_branches
+        int max_employees
     }
 
     SUBSCRIPTION {
@@ -385,10 +529,26 @@ erDiagram
     EMPLOYEE_INVITATION {
         string id PK
         string email
-        string role "Admin, Recruiter, Interviewer"
+        string role "Owner, Global_Admin, Business_Unit_Admin, Branch_Admin, Recruiter, Interviewer, Hiring_Manager"
         string token
         string organization_id FK
+        string business_unit_id FK "nullable"
+        string branch_id FK "nullable"
+        string department_id FK "nullable"
         datetime expires_at
+    }
+
+    AUDIT_LOG {
+        string id PK
+        string organization_id FK
+        string employee_id FK
+        string action "e.g. JOB_CREATED, ROLE_UPDATED"
+        string entity_name "e.g. Job, Applicant"
+        string entity_id
+        jsonb old_values "nullable"
+        jsonb new_values "nullable"
+        string ip_address "nullable"
+        datetime created_at
     }
 ```
 
