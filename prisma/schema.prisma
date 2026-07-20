@@ -398,6 +398,8 @@ model Candidate {
   skills             CandidateSkill[]
   availabilitySlots  AvailabilitySlot[]
   talentPools        TalentPoolCandidate[]
+  practiceSessions   PracticeSession[]
+  resumeReviews      ResumeReview[]
 
   @@index([email])
 }
@@ -677,18 +679,19 @@ model EmployeeInvitation {
 
 // NextAuth standard models
 model User {
-  id            String         @id @default(cuid())
-  name          String?
-  email         String?        @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  employees     Employee[] // A user can have one or more Employee profiles
-  candidates    Candidate[] // A user can have one or more Candidate profiles
-  notifications Notification[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                    String                 @id @default(cuid())
+  name                  String?
+  email                 String?                @unique
+  emailVerified         DateTime?
+  image                 String?
+  accounts              Account[]
+  sessions              Session[]
+  employees             Employee[] // A user can have one or more Employee profiles
+  candidates            Candidate[] // A user can have one or more Candidate profiles
+  candidateSubscription CandidateSubscription?
+  notifications         Notification[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 }
 
 model Account {
@@ -910,5 +913,66 @@ model TalentPoolCandidate {
 
   @@unique([talentPoolId, candidateId])
   @@index([talentPoolId])
+  @@index([candidateId])
+}
+
+model CandidatePlan {
+  id                  String                  @id @default(uuid())
+  name                String                  @unique // "Free", "Prep Pro", "Prep Unlimited"
+  price               Int                     // Price in cents
+  mockInterviewsLimit Int                     // e.g. 2 for Free, 20 for Pro, -1 for Unlimited
+  codingPracticeLimit Int                     // e.g. 5 for Free, 100 for Pro, -1 for Unlimited
+  resumeReviewsLimit  Int                     // e.g. 1 for Free, 10 for Pro, -1 for Unlimited
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  subscriptions       CandidateSubscription[]
+}
+
+model CandidateSubscription {
+  id                     String        @id @default(uuid())
+  userId                 String        @unique
+  planId                 String
+  stripeCustomerId       String?       @unique
+  stripeSubscriptionId   String?       @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  user                   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                   CandidatePlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+}
+
+model PracticeSession {
+  id              String    @id @default(uuid())
+  candidateId     String
+  title           String    // e.g. "Mock System Design Practice"
+  roleCategory    String    // e.g. "Backend Engineer"
+  overallScore    Int?      // AI Score (0-100)
+  voiceScore      Int?
+  transcript      String?   @db.Text
+  aiFeedback      String?   @db.Text
+  improvementTips Json?     // Actionable feedback from Gemini
+  createdAt       DateTime  @default(now())
+
+  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+}
+
+model ResumeReview {
+  id                String    @id @default(uuid())
+  candidateId       String
+  targetRole        String    // e.g. "Full Stack Developer"
+  resumeUrl         String?
+  atsScore          Int?      // AI ATS score (0-100)
+  keywordMatchScore Int?      // Keyword match score
+  strengths         Json?     // Highlighted strengths
+  improvements      Json?     // Suggested improvements
+  missingKeywords   String[]  // Missing keywords list
+  createdAt         DateTime  @default(now())
+
+  candidate         Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
   @@index([candidateId])
 }

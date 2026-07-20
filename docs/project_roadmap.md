@@ -28,6 +28,10 @@ This roadmap outlines the implementation schedule, architectural steps, database
   * `JobApproval`: Tracks internal organizational approval logs for releasing a job requisition.
   * `Offer`: Stores salary package, start dates, and status for job offers sent to candidates.
   * `OfferApproval`: Tracks internal workflows for approving candidate job offer releases.
+  * `CandidatePlan`: Dedicated B2C candidate subscription tiers (Free, Prep Pro, Prep Unlimited) with quotas for mock interviews, practice coding tests, and ATS resume reviews.
+  * `CandidateSubscription`: B2C Stripe subscription linkage for candidate self-preparation.
+  * `PracticeSession`: Records candidate AI mock verbal and technical interview practice sessions with Gemini feedback scores and transcripts.
+  * `ResumeReview`: Stores candidate AI ATS resume match scores, keyword optimization analysis, and formatting recommendations.
   * `JobBoardConnection`: Stores organization or branch-scoped credentials (OAuth tokens / API keys) for connected job boards (LinkedIn, Indeed, Naukri, Monster, Wellfound, Greenhouse, Lever).
   * `JobBoardPost`: Tracks which jobs are posted on which connected boards, including status (`Pending`, `Posted`, `Failed`), external job IDs, redirect URL, and API error logs.
   * `Plan`: Dedicated database-driven tiers (Free, Pro, Enterprise) detailing pricing and structural limits (`activeJobsLimit`, `aiCreditsLimit`, `maxBusinessUnits`, `maxBranches`, `maxEmployees`).

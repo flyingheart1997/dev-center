@@ -212,6 +212,10 @@ erDiagram
     APPLICATION ||--o| OFFER : creates
     OFFER ||--o{ OFFER_APPROVAL : requests
     EMPLOYEE ||--o{ OFFER_APPROVAL : signs
+    USER ||--o| CANDIDATE_SUBSCRIPTION : subscribes
+    CANDIDATE_SUBSCRIPTION }|--|| CANDIDATE_PLAN : references
+    CANDIDATE ||--o{ PRACTICE_SESSION : conducts
+    CANDIDATE ||--o{ RESUME_REVIEW : reviews
     
     ORGANIZATION {
         string id PK
@@ -455,6 +459,47 @@ erDiagram
         string status "Pending, Approved, Rejected"
         string feedback "nullable"
         datetime approved_at "nullable"
+    }
+
+    CANDIDATE_PLAN {
+        string id PK
+        string name
+        int price
+        int mock_interviews_limit
+        int coding_practice_limit
+        int resume_reviews_limit
+    }
+
+    CANDIDATE_SUBSCRIPTION {
+        string id PK
+        string user_id FK
+        string plan_id FK
+        string stripe_customer_id
+        string stripe_subscription_id
+    }
+
+    PRACTICE_SESSION {
+        string id PK
+        string candidate_id FK
+        string title
+        string role_category
+        int overall_score
+        int voice_score
+        string transcript
+        string ai_feedback
+        jsonb improvement_tips
+    }
+
+    RESUME_REVIEW {
+        string id PK
+        string candidate_id FK
+        string target_role
+        string resume_url
+        int ats_score
+        int keyword_match_score
+        jsonb strengths
+        jsonb improvements
+        array missing_keywords
     }
 
     JOB_BOARD_CONNECTION {
