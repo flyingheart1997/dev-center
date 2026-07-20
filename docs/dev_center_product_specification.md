@@ -37,7 +37,77 @@ The coding arena supports two distinct evaluation pipelines depending on the lan
    * This provides a live, interactive preview panel of the UI candidate is building.
    * Real-time rendering is done client-side. The code is then analyzed by Gemini for structure, clean component breakdown, styling logic, and best practices to provide a grading score.
 
+### E. Candidate Draft Application & Screening Reminders
+* **Partial Application Save**: Candidates are not required to complete their application form and AI pre-screening in a single session. They can fill out forms partially, saving their progress.
+* **Applicant Lifecycle**:
+  * `Draft`: Form filled partially and saved, but not yet submitted.
+  * `Applied`: Form submitted; candidate is ready but has not started AI pre-screening.
+  * `Screening_In_Progress`: Candidate has started the voice/coding tests but has not finished all required rounds.
+  * `Screening_Completed`: Pre-screening is fully done, and results are graded.
+  * `Qualified` / `Rejected` / `Hired`: Subsequent recruitment stages.
+* **Notification Engine (Reminders)**: Background cron jobs (Resend + Queue scheduler) periodically check for applications stuck in `Draft` or `Applied` (but screening incomplete) and trigger email reminders (e.g. "Complete your pre-screening for TCS Software Engineer role").
+
+### F. Role-Based Access Control (RBAC) & Scope-Based Permissions
+Employee permissions are determined by a combination of their **Role** and their **Scope** (Global, Business Unit, Branch, Department):
+
+* **Roles**:
+  * **Owner**: Ultimate administrative control over the entire Organization, including billing, subscription setup, custom domain verification, and system settings.
+  * **Global Admin**: Full read/write administrative access across the entire organization (all Business Units, Branches, and Departments).
+  * **Business Unit Admin**: Administrative control restricted to a specific Business Unit (and all its child branches/departments).
+  * **Branch Admin**: Administrative control restricted to a specific physical or regional Branch (and all its child departments).
+  * **Recruiter**: Responsible for candidate sourcing, job creation, and screening pipelines. Can only operate within their assigned scope (Global, BU, Branch, or Department).
+  * **Hiring Manager**: Oversees candidate reviews, provides feedback, and makes final hiring decisions within their assigned scope.
+  * **Interviewer**: Read-only access to jobs and resumes. Allowed to join assigned live interview rooms, write markdown notes, and fill out candidate scorecards.
+
+* **Scopes**:
+  * **GLOBAL**: Access to all resources across the organization.
+  * **BUSINESS_UNIT**: Access restricted to a specific business unit (e.g., TCS Digital).
+  * **BRANCH**: Access restricted to a specific location branch (e.g., Pune).
+  * **DEPARTMENT**: Access restricted to a specific department (e.g., Engineering).
+
 ---
+
+### G. Left Sidebar Navigation Architecture
+
+Both the **B2B Enterprise Portal** and **B2C Candidate Portal** utilize a collapsible **Left Sidebar Layout** to ensure consistent navigation and quick access to tools.
+
+#### 1. B2B Employer & Enterprise Dashboard Left Sidebar (`(dashboard)`)
+- **Header & Tenant Switcher**: Organization Brand Logo + Dropdown selector for switching between Branches (*TCS Mumbai*, *TCS London*) or Business Units.
+- **Section 1: OVERVIEW**
+  * 📊 `Overview` (`/dashboard`): High-level KPI metrics (Active Jobs, Candidates in Pipeline, Scheduled Interviews).
+- **Section 2: HIRING PIPELINE**
+  * 💼 `Job Requisitions` (`/dashboard/jobs`): Job draft creation, requisition workflows, multi-board distribution.
+  * 👥 `Candidate Pipeline` (`/dashboard/candidates`): ATS Kanban board and screening score tables.
+  * 📹 `Live Interviews` (`/dashboard/interviews`): Interview schedule calendar, LiveKit room triggers, scorecard evaluations.
+- **Section 3: GOVERNANCE & CRM**
+  * 📑 `Approvals Queue` (`/dashboard/approvals`): Pending Requisition & Offer Letter approval queues (with pending counter badge `[3]`).
+  * 📂 `Talent CRM Pools` (`/dashboard/talent-pools`): Candidate silver medallist communities & tagging.
+  * 🎁 `Employee Referrals` (`/dashboard/referrals`): Employee referral submission and bonus tracking.
+- **Section 4: ASSESSMENT & CONTENT**
+  * 💻 `Question Library` (`/dashboard/questions`): Coding challenges, system design problems, and technical theory question bank.
+- **Section 5: ADMINISTRATION & SETTINGS**
+  * 🏢 `Organization Hierarchy` (`/dashboard/organization`): Business Units, Branches, Departments, Employee Directory & Approvals.
+  * 🔐 `Compliance Audit Logs` (`/dashboard/audit-logs`): Security audit logs, IP origins, payload diffs.
+  * 💳 `Billing & Subscription` (`/dashboard/billing`): Enterprise B2B plan details, active job quotas, Stripe customer portal.
+  * ⚙️ `Workspace Settings` (`/dashboard/settings`): Custom branding, email templates, connected job board API keys.
+
+#### 2. B2C Candidate Portal Left Sidebar (`(candidate)`)
+- **Header & Profile Summary**: Candidate Avatar, Name, Profile Completion % bar (*85% Complete*), and Subscription Badge (*Prep Pro*).
+- **Section 1: MY CAREER**
+  * 🎯 `Candidate Hub` (`/candidate`): Personal dashboard, upcoming interviews, AI job recommendations.
+  * 📄 `My Applications` (`/candidate/applications`): Submitted applications status timeline, offer letters, reschedule requests.
+  * ⭐ `Saved Jobs & Matches` (`/candidate/saved-jobs`): Bookmarked jobs & skill-matched recommendations.
+- **Section 2: AI PREPARATION STUDIO**
+  * 🎙️ `AI Voice Mock Arena` (`/candidate/prep/mock-interviews`): 1-on-1 AI voice interview practice, transcripts, feedback scores.
+  * 📑 `AI Resume Studio` (`/candidate/prep/resume-studio`): ATS resume builder, keyword match checker, bullet point optimizer.
+  * 💻 `AI Coding Practice` (`/candidate/prep/coding`): Coding challenges with instant AI virtual compiler feedback.
+- **Section 3: ACCOUNT & BILLING**
+  * 👤 `My Resume & Profile` (`/candidate/profile`): Work history, portfolio links, skill tags, country permits.
+  * ⚡ `Subscription & Credits` (`/candidate/billing`): B2C practice credits remaining, Stripe subscription management.
+  * ⚙️ `Account Settings` (`/candidate/settings`): Notification preferences, security, GDPR data download.
+
+---
+
 
 ## 2. Project Folder Architecture
 
@@ -46,20 +116,67 @@ To ensure high scalability, micro-level code ownership, and ease of maintenance 
 ```
 dev-center/
 ├── app/                      # Next.js Routes (Pages, Layouts, API Route handlers)
-│   ├── (auth)/               # Route Group for Authentication (Login, Register)
-│   ├── (dashboard)/          # Route Group for Organization/Employee Dashboards
-│   ├── (candidate)/          # Route Group for Candidate Portal
+│   ├── (auth)/               # Route Group for Authentication (Login, Register, Onboarding Selection)
+│   │   ├── login/page.tsx
+│   │   ├── register/page.tsx
+│   │   ├── onboarding/page.tsx # Dual Choice: B2B Employer vs B2C Candidate Onboarding
+│   │   └── layout.tsx
+│   │
+│   ├── (public)/             # Public Landing & Job Search Pages
+│   │   ├── page.tsx          # Public Landing Page
+│   │   ├── jobs/
+│   │   │   ├── page.tsx      # Public Job Board & Search
+│   │   │   └── [jobId]/page.tsx # Job Application Page
+│   │   └── layout.tsx
+│   │
+│   ├── (dashboard)/          # B2B Employer & Admin Portal (Sidebar Layout)
+│   │   ├── layout.tsx        # B2B Employer Sidebar Layout (Branch Switcher, Topbar)
+│   │   └── dashboard/
+│   │       ├── page.tsx      # Overview Analytics Dashboard
+│   │       ├── jobs/         # Requisition & Job Postings
+│   │       ├── candidates/   # ATS Candidate Pipeline Kanban & Screening
+│   │       ├── interviews/   # Interview Calendar & Live Room Trigger
+│   │       ├── approvals/    # Requisition & Offer Approval Queue
+│   │       ├── talent-pools/ # Candidate CRM Pools & Silver Medallists
+│   │       ├── referrals/    # Employee Referral Tracking
+│   │       ├── questions/    # AI Question Library & Custom Form Templates
+│   │       ├── organization/ # Business Units, Branches, Departments, Employees
+│   │       ├── audit-logs/   # Security Audit Trails & IP Logs
+│   │       ├── billing/      # B2B Organization Subscription & Stripe Portal
+│   │       └── settings/     # Custom Branding, Email Templates, Job Board Keys
+│   │
+│   ├── (candidate)/          # B2C Candidate Portal & AI Career Studio (Sidebar Layout)
+│   │   ├── layout.tsx        # B2C Candidate Sidebar Layout (Prep Badge, Profile Progress)
+│   │   └── candidate/
+│   │       ├── page.tsx      # Candidate Career Overview Hub
+│   │       ├── applications/ # Submitted Applications & Offer Letters Tracking
+│   │       ├── saved-jobs/   # Saved Jobs & AI Match Recommendations
+│   │       ├── prep/         # AI Prep Studio
+│   │       │   ├── mock-interviews/ # 1-on-1 AI Voice Practice Arena
+│   │       │   ├── resume-studio/   # AI Resume Builder & ATS Score Checker
+│   │       │   └── coding/          # AI Coding Practice Arena
+│   │       ├── profile/      # Candidate Resume & Work History Profile
+│   │       ├── billing/      # B2C Candidate Subscription & Credits
+│   │       └── settings/     # Account & Notification Settings
+│   │
+│   ├── (room)/               # Fullscreen Collaborative Live Interview Arena
+│   │   └── interview/[interviewId]/
+│   │       ├── page.tsx      # Video Call + Shared Code Editor + Embedded Scorecard
+│   │       └── layout.tsx    # Distraction-Free Fullscreen Layout
+│   │
 │   ├── api/                  # Global API Route Handlers (Webhooks, LiveKit tokens)
-│   ├── layout.tsx            # Global Layout
-│   └── page.tsx              # Public Landing / Job Board Page
+│   ├── layout.tsx            # Root Global Layout
+│   └── page.tsx              # Public Entry Page
 │
-├── features/                 # Domain-Specific Modules (Self-contained logic)
+├── features/                 # Domain-Specific Modules (Self-contained business logic)
 │   ├── auth/                 # Authentication features (NextAuth callbacks, custom middleware)
-│   ├── jobs/                 # Job posting, status toggle, custom question templates
+│   ├── organization/         # Business Units, Branches, Departments management
+│   ├── jobs/                 # Job posting, requisition approvals, multi-board posts
 │   ├── screening/            # AI Verbal screening & AI Virtual Compiler pipelines
 │   ├── interview/            # Live WebRTC Meeting Room, Monaco editor, Interviewer notes
-│   ├── billing/              # Stripe Checkouts, Webhooks, Portal sessions
-│   └── dashboard/            # Metrics charts, pending approval tables
+│   ├── candidate-prep/       # B2C AI Voice Mock, ATS Resume Reviewer, Practice Coding Arena
+│   ├── billing/              # Stripe B2B & B2C Checkouts, Webhooks, Portal sessions
+│   └── dashboard/            # Metrics charts, pending approval tables, audit logs
 │       # Inside each feature module:
 │       ├── components/       # Feature-specific UI components (e.g. JobCard, VoiceRecorder)
 │       ├── hooks/            # Feature-specific custom hooks (e.g. useVoiceTranscription)
@@ -72,11 +189,7 @@ dev-center/
 │   └── shared/               # Composite shared components (navbar, sidebar, theme-toggle)
 │
 ├── hooks/                    # Global Shared Hooks (useDebounce, useMediaQuery)
-│   
 ├── lib/                      # Third-Party Client initializations & Helpers
-│   ├── prisma.ts             # Prisma Database Client
-│   ├── gemini.ts             # Gemini API Client
-│   ├── livekit.ts            # LiveKit Server Client
 │   ├── stripe.ts             # Stripe Helper functions
 │   └── utils.ts              # Global utilities (cn class merging helper)
 │
@@ -140,61 +253,440 @@ To monetize the platform, we will implement a multi-tiered subscription model us
 
 To scale to millions of users, `dev-center` uses a **Shared-Database, Single-Schema (Tenant Isolated)** design:
 
-* Every workspace table contains an `organization_id` column.
+* Every workspace table contains an `organization_id` column (or links to one transitively).
 * Database queries are always filtered by `organization_id` of the logged-in employee.
 * Strict tenant checks are enforced at the API/Server Action level.
 
 ```mermaid
 erDiagram
+    ORGANIZATION ||--o{ BUSINESS_UNIT : defines
+    BUSINESS_UNIT ||--o{ BRANCH : contains
+    BRANCH ||--o{ DEPARTMENT : groups
     ORGANIZATION ||--o{ EMPLOYEE : employs
+    BUSINESS_UNIT ||--o{ EMPLOYEE : scopes
+    BRANCH ||--o{ EMPLOYEE : scopes
+    DEPARTMENT ||--o{ EMPLOYEE : scopes
     ORGANIZATION ||--o{ JOB : posts
-    EMPLOYEE ||--o{ INTERVIEW : conducts
-    JOB ||--o{ APPLICANT : receives
+    BUSINESS_UNIT ||--o{ JOB : scopes
+    BRANCH ||--o{ JOB : scopes
+    DEPARTMENT ||--o{ JOB : scopes
+    ORGANIZATION ||--o{ JOB_BOARD_CONNECTION : connects
+    ORGANIZATION ||--o| SUBSCRIPTION : has
+    ORGANIZATION ||--o{ QUESTION : owns
     JOB ||--o{ JOB_ROUND : defines
-    APPLICANT ||--o{ SCREENING_SCORE : gets
-    APPLICANT ||--o{ INTERVIEW : undergoes
+    JOB_ROUND ||--o{ JOB_ROUND_INTERVIEWER : has
+    EMPLOYEE ||--o{ JOB_ROUND_INTERVIEWER : conducts
+    CANDIDATE ||--o{ APPLICATION : applies
+    JOB ||--o{ APPLICATION : receives
+    APPLICATION ||--o{ INTERVIEW : undergoes
+    EMPLOYEE ||--o{ INTERVIEW : conducts
+    INTERVIEW ||--o{ SCORECARD : reviews
+    EMPLOYEE ||--o{ SCORECARD : submits
+    APPLICATION ||--o| SCREENING_RESULT : has
+    JOB ||--o{ JOB_BOARD_POST : distributes
+    SUBSCRIPTION }|--|| PLAN : references
+    SKILL ||--o{ JOB_SKILL : mapped
+    JOB ||--o{ JOB_SKILL : requires
+    SKILL ||--o{ CANDIDATE_SKILL : mapped
+    CANDIDATE ||--o{ CANDIDATE_SKILL : possesses
+    USER ||--o{ NOTIFICATION : receives
+    ORGANIZATION ||--o{ EMPLOYEE_INVITATION : issues
+    JOB ||--o{ JOB_APPROVAL : requests
+    EMPLOYEE ||--o{ JOB_APPROVAL : signs
+    APPLICATION ||--o| OFFER : creates
+    OFFER ||--o{ OFFER_APPROVAL : requests
+    EMPLOYEE ||--o{ OFFER_APPROVAL : signs
+    USER ||--o| CANDIDATE_SUBSCRIPTION : subscribes
+    CANDIDATE_SUBSCRIPTION }|--|| CANDIDATE_PLAN : references
+    CANDIDATE ||--o{ PRACTICE_SESSION : conducts
+    CANDIDATE ||--o{ RESUME_REVIEW : reviews
+    CANDIDATE ||--o{ SAVED_JOB : bookmarks
+    JOB ||--o{ SAVED_JOB : bookmarked_by
     
     ORGANIZATION {
         string id PK
         string name
         string domain
-        string subscription_tier
+        int data_retention_days
+    }
+
+    BUSINESS_UNIT {
+        string id PK
+        string organization_id FK
+        string name
+        boolean is_active
+    }
+
+    BRANCH {
+        string id PK
+        string organization_id FK
+        string business_unit_id FK
+        string name
+        string code
+        string timezone
+        string country
+        string city
+        string address
+        boolean is_head_office
+        boolean is_active
+    }
+
+    DEPARTMENT {
+        string id PK
+        string organization_id FK
+        string branch_id FK
+        string name
+        boolean is_active
     }
     
     EMPLOYEE {
         string id PK
         string organization_id FK
-        string name
-        string email
-        string role "Admin, Recruiter, Interviewer"
-        string status "Active, Pending"
+        string business_unit_id FK "nullable"
+        string branch_id FK "nullable"
+        string department_id FK "nullable"
+        string user_id FK
+        string role "Owner, Global_Admin, Business_Unit_Admin, Branch_Admin, Recruiter, Interviewer, Hiring_Manager"
+        string status "Active, Pending_Approval"
     }
 
     JOB {
         string id PK
         string organization_id FK
+        string business_unit_id FK "nullable"
+        string branch_id FK "nullable"
+        string department_id FK "nullable"
         string title
         string description
-        string status "Draft, Active, Completed"
-        jsonb custom_form_fields
+        string status "Draft, Pending_Approval, Active, Completed"
+        string employment_type "Full_Time, Part_Time, Contract, Internship"
+        string experience_level "Entry, Mid, Senior, Lead, Executive"
+        float salary_min
+        float salary_max
+        string currency
+        string location
+        string remote_type "Onsite, Hybrid, Remote"
+        boolean is_internal_only
+        datetime published_at
+        datetime closing_date
+    }
+
+    SKILL {
+        string id PK
+        string name
+    }
+
+    JOB_SKILL {
+        string id PK
+        string job_id FK
+        string skill_id FK
+    }
+
+    CANDIDATE_SKILL {
+        string id PK
+        string candidate_id FK
+        string skill_id FK
     }
 
     JOB_ROUND {
         string id PK
         string job_id FK
         int order_index
-        string title "System Design, HR, etc."
-        string interviewer_ids "Array of Employee IDs"
+        string title
+        string category "Screening, Technical, Design, Behavioral, Management"
+        int duration_minutes
     }
 
-    APPLICANT {
+    JOB_ROUND_INTERVIEWER {
         string id PK
-        string job_id FK
+        string round_id FK
+        string employee_id FK
+    }
+
+    CANDIDATE {
+        string id PK
+        string user_id FK "nullable"
         string name
         string email
-        string status "Applied, Qualified, In-Interview, Hired, Rejected"
+        string phone
+        string linkedin_url
+        string github_url
+        string portfolio_url
+        int experience_years
+        string current_company
+        string current_designation
+        string location
+        boolean country_permit
+        boolean criminal_record
+        boolean is_existing_employee
+        boolean consent_given
+        datetime consent_timestamp
+        array tags
+    }
+
+    APPLICATION {
+        string id PK
+        string job_id FK
+        string candidate_id FK
+        string referrer_id FK "nullable"
+        string current_round_id FK "nullable"
+        string status "Applied, Screening, Shortlisted, Interviewing, Offer, OfferAccepted, OfferRejected, Hired, Rejected, Withdrawn, OnHold"
         string resume_url
-        jsonb custom_form_responses
+        float expected_salary
+        float current_salary
+        int notice_period
+        string source "e.g. LinkedIn, Indeed"
+        string rejection_reason "nullable"
+        string rejection_notes "nullable"
+        jsonb form_responses
+        int screening_score
+        boolean allow_cross_branch_sharing
+    }
+
+    SCREENING_RESULT {
+        string id PK
+        string application_id FK
+        string ai_model "e.g. gemini-2.0-flash"
+        int resume_score
+        string resume_feedback
+        int voice_score
+        string voice_feedback
+        string voice_transcript
+        int coding_score
+        string coding_feedback
+        jsonb coding_source_tree
+        int personality_score
+        int overall_score
+        string recommendation "Strong_Hire, Hire, No_Hire, Strong_No_Hire"
+    }
+
+    INTERVIEW {
+        string id PK
+        string application_id FK
+        string job_round_id FK
+        string status "Scheduled, Reschedule_Requested, Completed, Cancelled, Absent"
+        boolean is_rescheduled
+        datetime start_time
+        datetime end_time
+        string meeting_link
+        string livekit_room_id
+    }
+
+    RESCHEDULE_REQUEST {
+        string id PK
+        string interview_id FK
+        string requested_by_id
+        string requested_by "Candidate, Interviewer"
+        string reason
+        jsonb proposed_slots "nullable"
+        string status "Pending, Approved, Rejected"
+    }
+
+    AVAILABILITY_SLOT {
+        string id PK
+        string employee_id FK "nullable"
+        string candidate_id FK "nullable"
+        datetime start_time
+        datetime end_time
+        boolean is_booked
+    }
+
+    TALENT_POOL {
+        string id PK
+        string organization_id FK
+        string name
+        string description
+    }
+
+    TALENT_POOL_CANDIDATE {
+        string id PK
+        string talent_pool_id FK
+        string candidate_id FK
+        datetime added_at
+    }
+
+    SCORECARD {
+        string id PK
+        string interview_id FK
+        string interviewer_id FK
+        int technical_score
+        int communication_score
+        int problem_solving_score
+        int culture_score
+        int overall_score
+        string recommendation "Strong_Hire, Hire, No_Hire, Strong_No_Hire"
+        string feedback
+    }
+
+    JOB_APPROVAL {
+        string id PK
+        string job_id FK
+        string approver_id FK
+        string status "Pending, Approved, Rejected"
+        string feedback "nullable"
+        datetime approved_at "nullable"
+    }
+
+    OFFER {
+        string id PK
+        string application_id FK
+        float offered_salary
+        string currency
+        datetime target_start_date
+        string status "Draft, Pending_Approval, Approved, Sent, Accepted, Rejected, Withdrawn"
+        datetime created_at
+        datetime updated_at
+    }
+
+    OFFER_APPROVAL {
+        string id PK
+        string offer_id FK
+        string approver_id FK
+        string status "Pending, Approved, Rejected"
+        string feedback "nullable"
+        datetime approved_at "nullable"
+    }
+
+    CANDIDATE_PLAN {
+        string id PK
+        string name
+        int price
+        int mock_interviews_limit
+        int coding_practice_limit
+        int resume_reviews_limit
+    }
+
+    CANDIDATE_SUBSCRIPTION {
+        string id PK
+        string user_id FK
+        string plan_id FK
+        string stripe_customer_id
+        string stripe_subscription_id
+    }
+
+    PRACTICE_SESSION {
+        string id PK
+        string candidate_id FK
+        string title
+        string role_category
+        int overall_score
+        int voice_score
+        string transcript
+        string ai_feedback
+        jsonb improvement_tips
+    }
+
+    RESUME_REVIEW {
+        string id PK
+        string candidate_id FK
+        string target_role
+        string resume_url
+        int ats_score
+        int keyword_match_score
+        jsonb strengths
+        jsonb improvements
+        array missing_keywords
+    }
+
+    SAVED_JOB {
+        string id PK
+        string candidate_id FK
+        string job_id FK
+        datetime saved_at
+    }
+
+    JOB_BOARD_CONNECTION {
+        string id PK
+        string organization_id FK
+        string business_unit_id FK "nullable"
+        string branch_id FK "nullable"
+        string provider "LINKEDIN, INDEED, NAUKRI, MONSTER, GLASSDOOR, WELLFOUND, GREENHOUSE, LEVER"
+        jsonb credentials "Encrypted access tokens"
+        string status "Connected, Expired, Disconnected"
+    }
+
+    JOB_BOARD_POST {
+        string id PK
+        string job_id FK
+        string provider "LINKEDIN, INDEED, NAUKRI, MONSTER, GLASSDOOR, WELLFOUND, GREENHOUSE, LEVER"
+        string external_job_id "nullable"
+        string url "External redirection link"
+        string status "Pending, Posted, Failed"
+        string error_message "nullable"
+        datetime posted_at
+    }
+
+    PLAN {
+        string id PK
+        string name "Free, Pro, Enterprise"
+        int price
+        int active_jobs_limit
+        int ai_credits_limit
+        int max_business_units
+        int max_branches
+        int max_employees
+    }
+
+    SUBSCRIPTION {
+        string id PK
+        string organization_id FK
+        string plan_id FK
+        string stripe_customer_id
+        string stripe_subscription_id
+        string stripe_price_id
+        datetime stripe_current_period_end
+    }
+
+    QUESTION {
+        string id PK
+        string organization_id FK
+        boolean is_system
+        string title
+        string description
+        string category "Coding, System_Design, System_Architecture, Behavioral, Technical_Theory, Business_Case"
+        string difficulty "Easy, Medium, Hard"
+        array tags
+        array languages
+        int time_limit
+        int memory_limit
+        jsonb test_cases
+        jsonb starter_code
+        string solution_code
+    }
+
+    NOTIFICATION {
+        string id PK
+        string user_id FK
+        string title
+        string content
+        boolean is_read
+        string type "System, Application_Update, Interview_Scheduled, Screening_Completed, Employee_Invite"
+        string action_url
+    }
+
+    EMPLOYEE_INVITATION {
+        string id PK
+        string email
+        string role "Owner, Global_Admin, Business_Unit_Admin, Branch_Admin, Recruiter, Interviewer, Hiring_Manager"
+        string token
+        string organization_id FK
+        string business_unit_id FK "nullable"
+        string branch_id FK "nullable"
+        string department_id FK "nullable"
+        datetime expires_at
+    }
+
+    AUDIT_LOG {
+        string id PK
+        string organization_id FK
+        string employee_id FK
+        string action "e.g. JOB_CREATED, ROLE_UPDATED"
+        string entity_name "e.g. Job, Applicant"
+        string entity_id
+        jsonb old_values "nullable"
+        jsonb new_values "nullable"
+        string ip_address "nullable"
+        datetime created_at
     }
 ```
 
