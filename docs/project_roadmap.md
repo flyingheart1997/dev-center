@@ -32,6 +32,7 @@ This roadmap outlines the implementation schedule, architectural steps, database
   * `CandidateSubscription`: B2C Stripe subscription linkage for candidate self-preparation.
   * `PracticeSession`: Records candidate AI mock verbal and technical interview practice sessions with Gemini feedback scores and transcripts.
   * `ResumeReview`: Stores candidate AI ATS resume match scores, keyword optimization analysis, and formatting recommendations.
+  * `SavedJob`: Candidate job bookmarks allowing job seekers to save postings for later review.
   * `JobBoardConnection`: Stores organization or branch-scoped credentials (OAuth tokens / API keys) for connected job boards (LinkedIn, Indeed, Naukri, Monster, Wellfound, Greenhouse, Lever).
   * `JobBoardPost`: Tracks which jobs are posted on which connected boards, including status (`Pending`, `Posted`, `Failed`), external job IDs, redirect URL, and API error logs.
   * `Plan`: Dedicated database-driven tiers (Free, Pro, Enterprise) detailing pricing and structural limits (`activeJobsLimit`, `aiCreditsLimit`, `maxBusinessUnits`, `maxBranches`, `maxEmployees`).
@@ -42,13 +43,18 @@ This roadmap outlines the implementation schedule, architectural steps, database
   * `AuditLog`: Enterprise compliance audit trails tracking administrative actions, role updates, application status shifts, payload diff snapshots, and IP origins.
   * NextAuth standard tables: `User`, `Account`, `Session`, `VerificationToken` linked via Prisma adapter. `User` links to both `Employee` and `Candidate` profiles.
 
-### 2. Custom NextAuth.js Configuration
+### 2. Custom NextAuth.js Configuration & Dual-Portal Route Groups
 * Setup `auth.ts` under `features/auth/` (Auth.js v5):
   * Configure Credentials provider, Google OAuth, GitHub OAuth, and LinkedIn OAuth.
-  * Setup callbacks to attach `organization_id`, `role`, and `employee_status` to the JWT token and session cookies.
-  * Block login if an employee is in the `Pending_Approval` queue until approved.
+  * Setup callbacks to attach `organization_id`, `role`, `employee_status`, and `candidate_id` to the JWT token and session cookies.
+  * Block login if an employee is in the `Pending_Approval` queue until approved by an Org Admin.
   * Setup transactional email validation using **Resend** for onboarding.
   * Enforce role and scope-based endpoint protection (tRPC middleware & Next.js Server Actions) verifying that actions are restricted based on employee's Role and corresponding target resource scopes (`GLOBAL`, `BUSINESS_UNIT`, `BRANCH`, `DEPARTMENT`).
+* **Route Groups & Dual Left Sidebar Layout Architecture**:
+  * **`(dashboard)` (B2B Employer & Admin Portal)**: Left Sidebar layout with Organization/Branch Switcher dropdown, and sections for *Overview*, *Hiring Pipeline* (Jobs, Candidates, Interviews), *Governance & CRM* (Approvals Queue, Talent Pools, Referrals), *Question Library*, and *Admin Settings* (Org Hierarchy, Audit Logs, Billing).
+  * **`(candidate)` (B2C Candidate Portal & AI Prep Studio)**: Left Sidebar layout with Candidate Avatar, Profile Completion Bar, Prep Pro Badge, and sections for *My Career* (Hub, Applications, Saved Jobs), *AI Prep Studio* (Voice Mock, ATS Resume Review, Coding Arena), and *Billing/Settings*.
+  * **`(room)` (Fullscreen Collaborative Arena)**: Distraction-free layout for live WebRTC video + shared code editor interviews.
+  * **`(auth)` & `(public)`**: Clean card layouts for login/onboarding choices and public job search boards.
 
 ### 3. Organization Workspace & Employee Invite Flow
 * **Super Admin / Recruiter Dashboard (`app/(dashboard)/`)**:

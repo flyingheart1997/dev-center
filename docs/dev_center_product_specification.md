@@ -67,6 +67,47 @@ Employee permissions are determined by a combination of their **Role** and their
 
 ---
 
+### G. Left Sidebar Navigation Architecture
+
+Both the **B2B Enterprise Portal** and **B2C Candidate Portal** utilize a collapsible **Left Sidebar Layout** to ensure consistent navigation and quick access to tools.
+
+#### 1. B2B Employer & Enterprise Dashboard Left Sidebar (`(dashboard)`)
+- **Header & Tenant Switcher**: Organization Brand Logo + Dropdown selector for switching between Branches (*TCS Mumbai*, *TCS London*) or Business Units.
+- **Section 1: OVERVIEW**
+  * 📊 `Overview` (`/dashboard`): High-level KPI metrics (Active Jobs, Candidates in Pipeline, Scheduled Interviews).
+- **Section 2: HIRING PIPELINE**
+  * 💼 `Job Requisitions` (`/dashboard/jobs`): Job draft creation, requisition workflows, multi-board distribution.
+  * 👥 `Candidate Pipeline` (`/dashboard/candidates`): ATS Kanban board and screening score tables.
+  * 📹 `Live Interviews` (`/dashboard/interviews`): Interview schedule calendar, LiveKit room triggers, scorecard evaluations.
+- **Section 3: GOVERNANCE & CRM**
+  * 📑 `Approvals Queue` (`/dashboard/approvals`): Pending Requisition & Offer Letter approval queues (with pending counter badge `[3]`).
+  * 📂 `Talent CRM Pools` (`/dashboard/talent-pools`): Candidate silver medallist communities & tagging.
+  * 🎁 `Employee Referrals` (`/dashboard/referrals`): Employee referral submission and bonus tracking.
+- **Section 4: ASSESSMENT & CONTENT**
+  * 💻 `Question Library` (`/dashboard/questions`): Coding challenges, system design problems, and technical theory question bank.
+- **Section 5: ADMINISTRATION & SETTINGS**
+  * 🏢 `Organization Hierarchy` (`/dashboard/organization`): Business Units, Branches, Departments, Employee Directory & Approvals.
+  * 🔐 `Compliance Audit Logs` (`/dashboard/audit-logs`): Security audit logs, IP origins, payload diffs.
+  * 💳 `Billing & Subscription` (`/dashboard/billing`): Enterprise B2B plan details, active job quotas, Stripe customer portal.
+  * ⚙️ `Workspace Settings` (`/dashboard/settings`): Custom branding, email templates, connected job board API keys.
+
+#### 2. B2C Candidate Portal Left Sidebar (`(candidate)`)
+- **Header & Profile Summary**: Candidate Avatar, Name, Profile Completion % bar (*85% Complete*), and Subscription Badge (*Prep Pro*).
+- **Section 1: MY CAREER**
+  * 🎯 `Candidate Hub` (`/candidate`): Personal dashboard, upcoming interviews, AI job recommendations.
+  * 📄 `My Applications` (`/candidate/applications`): Submitted applications status timeline, offer letters, reschedule requests.
+  * ⭐ `Saved Jobs & Matches` (`/candidate/saved-jobs`): Bookmarked jobs & skill-matched recommendations.
+- **Section 2: AI PREPARATION STUDIO**
+  * 🎙️ `AI Voice Mock Arena` (`/candidate/prep/mock-interviews`): 1-on-1 AI voice interview practice, transcripts, feedback scores.
+  * 📑 `AI Resume Studio` (`/candidate/prep/resume-studio`): ATS resume builder, keyword match checker, bullet point optimizer.
+  * 💻 `AI Coding Practice` (`/candidate/prep/coding`): Coding challenges with instant AI virtual compiler feedback.
+- **Section 3: ACCOUNT & BILLING**
+  * 👤 `My Resume & Profile` (`/candidate/profile`): Work history, portfolio links, skill tags, country permits.
+  * ⚡ `Subscription & Credits` (`/candidate/billing`): B2C practice credits remaining, Stripe subscription management.
+  * ⚙️ `Account Settings` (`/candidate/settings`): Notification preferences, security, GDPR data download.
+
+---
+
 
 ## 2. Project Folder Architecture
 
@@ -75,20 +116,67 @@ To ensure high scalability, micro-level code ownership, and ease of maintenance 
 ```
 dev-center/
 ├── app/                      # Next.js Routes (Pages, Layouts, API Route handlers)
-│   ├── (auth)/               # Route Group for Authentication (Login, Register)
-│   ├── (dashboard)/          # Route Group for Organization/Employee Dashboards
-│   ├── (candidate)/          # Route Group for Candidate Portal
+│   ├── (auth)/               # Route Group for Authentication (Login, Register, Onboarding Selection)
+│   │   ├── login/page.tsx
+│   │   ├── register/page.tsx
+│   │   ├── onboarding/page.tsx # Dual Choice: B2B Employer vs B2C Candidate Onboarding
+│   │   └── layout.tsx
+│   │
+│   ├── (public)/             # Public Landing & Job Search Pages
+│   │   ├── page.tsx          # Public Landing Page
+│   │   ├── jobs/
+│   │   │   ├── page.tsx      # Public Job Board & Search
+│   │   │   └── [jobId]/page.tsx # Job Application Page
+│   │   └── layout.tsx
+│   │
+│   ├── (dashboard)/          # B2B Employer & Admin Portal (Sidebar Layout)
+│   │   ├── layout.tsx        # B2B Employer Sidebar Layout (Branch Switcher, Topbar)
+│   │   └── dashboard/
+│   │       ├── page.tsx      # Overview Analytics Dashboard
+│   │       ├── jobs/         # Requisition & Job Postings
+│   │       ├── candidates/   # ATS Candidate Pipeline Kanban & Screening
+│   │       ├── interviews/   # Interview Calendar & Live Room Trigger
+│   │       ├── approvals/    # Requisition & Offer Approval Queue
+│   │       ├── talent-pools/ # Candidate CRM Pools & Silver Medallists
+│   │       ├── referrals/    # Employee Referral Tracking
+│   │       ├── questions/    # AI Question Library & Custom Form Templates
+│   │       ├── organization/ # Business Units, Branches, Departments, Employees
+│   │       ├── audit-logs/   # Security Audit Trails & IP Logs
+│   │       ├── billing/      # B2B Organization Subscription & Stripe Portal
+│   │       └── settings/     # Custom Branding, Email Templates, Job Board Keys
+│   │
+│   ├── (candidate)/          # B2C Candidate Portal & AI Career Studio (Sidebar Layout)
+│   │   ├── layout.tsx        # B2C Candidate Sidebar Layout (Prep Badge, Profile Progress)
+│   │   └── candidate/
+│   │       ├── page.tsx      # Candidate Career Overview Hub
+│   │       ├── applications/ # Submitted Applications & Offer Letters Tracking
+│   │       ├── saved-jobs/   # Saved Jobs & AI Match Recommendations
+│   │       ├── prep/         # AI Prep Studio
+│   │       │   ├── mock-interviews/ # 1-on-1 AI Voice Practice Arena
+│   │       │   ├── resume-studio/   # AI Resume Builder & ATS Score Checker
+│   │       │   └── coding/          # AI Coding Practice Arena
+│   │       ├── profile/      # Candidate Resume & Work History Profile
+│   │       ├── billing/      # B2C Candidate Subscription & Credits
+│   │       └── settings/     # Account & Notification Settings
+│   │
+│   ├── (room)/               # Fullscreen Collaborative Live Interview Arena
+│   │   └── interview/[interviewId]/
+│   │       ├── page.tsx      # Video Call + Shared Code Editor + Embedded Scorecard
+│   │       └── layout.tsx    # Distraction-Free Fullscreen Layout
+│   │
 │   ├── api/                  # Global API Route Handlers (Webhooks, LiveKit tokens)
-│   ├── layout.tsx            # Global Layout
-│   └── page.tsx              # Public Landing / Job Board Page
+│   ├── layout.tsx            # Root Global Layout
+│   └── page.tsx              # Public Entry Page
 │
-├── features/                 # Domain-Specific Modules (Self-contained logic)
+├── features/                 # Domain-Specific Modules (Self-contained business logic)
 │   ├── auth/                 # Authentication features (NextAuth callbacks, custom middleware)
-│   ├── jobs/                 # Job posting, status toggle, custom question templates
+│   ├── organization/         # Business Units, Branches, Departments management
+│   ├── jobs/                 # Job posting, requisition approvals, multi-board posts
 │   ├── screening/            # AI Verbal screening & AI Virtual Compiler pipelines
 │   ├── interview/            # Live WebRTC Meeting Room, Monaco editor, Interviewer notes
-│   ├── billing/              # Stripe Checkouts, Webhooks, Portal sessions
-│   └── dashboard/            # Metrics charts, pending approval tables
+│   ├── candidate-prep/       # B2C AI Voice Mock, ATS Resume Reviewer, Practice Coding Arena
+│   ├── billing/              # Stripe B2B & B2C Checkouts, Webhooks, Portal sessions
+│   └── dashboard/            # Metrics charts, pending approval tables, audit logs
 │       # Inside each feature module:
 │       ├── components/       # Feature-specific UI components (e.g. JobCard, VoiceRecorder)
 │       ├── hooks/            # Feature-specific custom hooks (e.g. useVoiceTranscription)
@@ -101,11 +189,7 @@ dev-center/
 │   └── shared/               # Composite shared components (navbar, sidebar, theme-toggle)
 │
 ├── hooks/                    # Global Shared Hooks (useDebounce, useMediaQuery)
-│   
 ├── lib/                      # Third-Party Client initializations & Helpers
-│   ├── prisma.ts             # Prisma Database Client
-│   ├── gemini.ts             # Gemini API Client
-│   ├── livekit.ts            # LiveKit Server Client
 │   ├── stripe.ts             # Stripe Helper functions
 │   └── utils.ts              # Global utilities (cn class merging helper)
 │
@@ -216,6 +300,8 @@ erDiagram
     CANDIDATE_SUBSCRIPTION }|--|| CANDIDATE_PLAN : references
     CANDIDATE ||--o{ PRACTICE_SESSION : conducts
     CANDIDATE ||--o{ RESUME_REVIEW : reviews
+    CANDIDATE ||--o{ SAVED_JOB : bookmarks
+    JOB ||--o{ SAVED_JOB : bookmarked_by
     
     ORGANIZATION {
         string id PK
@@ -500,6 +586,13 @@ erDiagram
         jsonb strengths
         jsonb improvements
         array missing_keywords
+    }
+
+    SAVED_JOB {
+        string id PK
+        string candidate_id FK
+        string job_id FK
+        datetime saved_at
     }
 
     JOB_BOARD_CONNECTION {

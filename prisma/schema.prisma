@@ -329,11 +329,12 @@ model Job {
   businessUnit  BusinessUnit?  @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
   branch        Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
   department    Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  rounds        JobRound[]
-  applications  Application[]
-  jobBoardPosts JobBoardPost[]
-  skills        JobSkill[]
-  approvals     JobApproval[]
+  rounds            JobRound[]
+  applications      Application[]
+  jobBoardPosts     JobBoardPost[]
+  skills            JobSkill[]
+  approvals         JobApproval[]
+  savedByCandidates SavedJob[]
 
   @@index([organizationId])
   @@index([status])
@@ -400,6 +401,7 @@ model Candidate {
   talentPools        TalentPoolCandidate[]
   practiceSessions   PracticeSession[]
   resumeReviews      ResumeReview[]
+  savedJobs          SavedJob[]
 
   @@index([email])
 }
@@ -975,4 +977,18 @@ model ResumeReview {
   candidate         Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
+}
+
+model SavedJob {
+  id          String   @id @default(uuid())
+  candidateId String
+  jobId       String
+  savedAt     DateTime @default(now())
+
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, jobId])
+  @@index([candidateId])
+  @@index([jobId])
 }
