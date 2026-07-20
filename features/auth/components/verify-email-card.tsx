@@ -14,7 +14,7 @@ export function VerifyEmailCard() {
 
   return (
     <Card className="w-full text-center">
-      <CardHeader className="space-y-3">
+      <CardHeader className="space-y-3 pt-4">
         <div className="w-12 h-12 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
           <Mail className="w-6 h-6" />
         </div>

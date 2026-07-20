@@ -7,11 +7,40 @@ import LinkedInProvider from "next-auth/providers/linkedin"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 
+const oauthProviders: NextAuthOptions["providers"] = []
+
+if (process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()) {
+  oauthProviders.push(
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID.trim(),
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET.trim(),
+    })
+  )
+}
+
+if (process.env.GITHUB_CLIENT_ID?.trim() && process.env.GITHUB_CLIENT_SECRET?.trim()) {
+  oauthProviders.push(
+    GitHubProvider({
+      clientId: process.env.GITHUB_CLIENT_ID.trim(),
+      clientSecret: process.env.GITHUB_CLIENT_SECRET.trim(),
+    })
+  )
+}
+
+if (process.env.LINKEDIN_CLIENT_ID?.trim() && process.env.LINKEDIN_CLIENT_SECRET?.trim()) {
+  oauthProviders.push(
+    LinkedInProvider({
+      clientId: process.env.LINKEDIN_CLIENT_ID.trim(),
+      clientSecret: process.env.LINKEDIN_CLIENT_SECRET.trim(),
+    })
+  )
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days rolling session persistence (LinkedIn style)
+    maxAge: 30 * 24 * 60 * 60, // 30 days rolling session persistence
   },
   pages: {
     signIn: "/login",
@@ -20,18 +49,7 @@ export const authOptions: NextAuthOptions = {
     verifyRequest: "/verify-email",
   },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    }),
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID || "",
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
-    }),
-    LinkedInProvider({
-      clientId: process.env.LINKEDIN_CLIENT_ID || "",
-      clientSecret: process.env.LINKEDIN_CLIENT_SECRET || "",
-    }),
+    ...oauthProviders,
     CredentialsProvider({
       id: "credentials-password",
       name: "Password Login",
@@ -62,12 +80,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error("No user found with this email")
         }
 
-        // Check password hash using bcryptjs
         const account = await prisma.account.findFirst({
           where: { userId: user.id, provider: "credentials" },
         })
 
-        // We store password hash in Account providerAccountId or dedicated credential check
         const passwordHash = account?.providerAccountId
 
         if (!passwordHash) {
@@ -110,7 +126,6 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.toLowerCase()
         const otpCode = credentials.otp.trim()
 
-        // Verify 6-digit OTP token in VerificationToken table
         const verificationToken = await prisma.verificationToken.findFirst({
           where: {
             identifier: `login-otp:${email}`,
@@ -123,12 +138,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (verificationToken.expires < new Date()) {
-          // Delete expired token
           await prisma.verificationToken.delete({ where: { id: verificationToken.id } })
           throw new Error("OTP code has expired. Please request a new code.")
         }
 
-        // Delete used token
         await prisma.verificationToken.delete({ where: { id: verificationToken.id } })
 
         const user = await prisma.user.findUnique({
@@ -178,7 +191,6 @@ export const authOptions: NextAuthOptions = {
         token.employeeStatus = user.employeeStatus
       }
 
-      // Handle client-side session update triggers
       if (trigger === "update" && session) {
         if (session.organizationId !== undefined) token.organizationId = session.organizationId
         if (session.employeeId !== undefined) token.employeeId = session.employeeId
@@ -187,7 +199,6 @@ export const authOptions: NextAuthOptions = {
         if (session.employeeStatus !== undefined) token.employeeStatus = session.employeeStatus
       }
 
-      // If missing employee/candidate links on OAuth login, resolve them from DB
       if (token.id && (!token.employeeId || !token.candidateId)) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id },

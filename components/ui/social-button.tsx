@@ -1,8 +1,9 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 
 export type SocialProvider = "google" | "github" | "linkedin"
 
@@ -65,22 +66,29 @@ export function SocialButton({
   className = "",
   children,
 }: SocialButtonProps) {
+  const [loading, setLoading] = useState(false)
   const config = PROVIDER_CONFIG[provider]
   const IconComponent = config.icon
 
-  const handleSignIn = () => {
-    signIn(provider, { callbackUrl })
+  const handleSignIn = async () => {
+    setLoading(true)
+    try {
+      await signIn(provider, { callbackUrl })
+    } catch {
+      setLoading(false)
+    }
   }
 
   return (
     <Button
       type="button"
       variant="outline"
+      disabled={loading}
       onClick={handleSignIn}
       className={`w-full h-11 flex items-center justify-center gap-2 text-sm font-medium border-border bg-card hover:bg-accent text-foreground shadow-sm transition active:scale-98 ${className}`}
     >
-      <IconComponent className="h-4 w-4" />
-      <span>{children || config.label}</span>
+      {loading ? <Spinner className="h-4 w-4 shrink-0" /> : <IconComponent className="h-4 w-4 shrink-0" />}
+      <span>{loading ? `Connecting to ${provider}...` : children || config.label}</span>
     </Button>
   )
 }

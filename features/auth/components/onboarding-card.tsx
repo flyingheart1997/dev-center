@@ -9,7 +9,7 @@ import { Building2, GraduationCap } from "lucide-react"
 export function OnboardingCard() {
   return (
     <Card className="w-full border-slate-200 dark:border-slate-800">
-      <CardHeader className="text-center space-y-1">
+      <CardHeader className="text-center space-y-1 pt-4">
         <CardTitle className="text-2xl font-bold">Choose Your Workspace</CardTitle>
         <CardDescription>How would you like to use Dev-Center today?</CardDescription>
       </CardHeader>

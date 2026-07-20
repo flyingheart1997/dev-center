@@ -33,7 +33,7 @@ export function LoginCard() {
 
   return (
     <Card className="w-full border-border bg-card relative">
-      <CardHeader className="text-center space-y-1 relative">
+      <CardHeader className="text-center space-y-1 pt-4 relative">
         {step === 2 && (
           <Button
             type="button"
@@ -190,7 +190,7 @@ export function LoginCard() {
                     />
                   </div>
                   <Button type="submit" disabled={loading} className="w-full h-11">
-                    {loading ? "Signing in..." : "Sign In with Password"}
+                    {loading ? "Signing in..." : "Sign in with Password"}
                   </Button>
                 </form>
               </TabsContent>
@@ -262,7 +262,7 @@ export function LoginCard() {
                   )}
 
                   <Button type="submit" disabled={loading} className="w-full h-11">
-                    {loading ? "Processing..." : otpSent ? "Verify Code & Sign In" : "Send 6-Digit OTP Code"}
+                    {loading ? "Processing..." : otpSent ? "Verify Code & Sign in" : "Send 6-Digit OTP Code"}
                   </Button>
                 </form>
               </TabsContent>

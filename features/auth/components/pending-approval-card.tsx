@@ -10,7 +10,7 @@ import { Clock } from "lucide-react"
 export function PendingApprovalCard() {
   return (
     <Card className="w-full text-center border-slate-200 dark:border-slate-800">
-      <CardHeader className="space-y-2">
+      <CardHeader className="space-y-2 pt-4">
         <div className="w-14 h-14 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center">
           <Clock className="w-7 h-7" />
         </div>

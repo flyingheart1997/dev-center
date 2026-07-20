@@ -15,7 +15,7 @@ export function ResetPasswordCard() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="text-center space-y-1">
+      <CardHeader className="text-center space-y-1 pt-4">
         <CardTitle className="text-2xl font-bold">Set New Password</CardTitle>
         <CardDescription>
           Enter a new password for <span className="font-semibold">{email || "your account"}</span>

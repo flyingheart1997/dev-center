@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { trpc } from "@/lib/trpc/client"
 import {
   loginOtpSchema,
@@ -15,10 +15,38 @@ import {
 
 export function useLoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<1 | 2>(1)
   const [loginMethod, setLoginMethod] = useState<"otp" | "password">("password")
   const [otpSent, setOtpSent] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  useEffect(() => {
+    const errorParam = searchParams?.get("error")
+    if (errorParam) {
+      if (errorParam === "OAuthSignin" || errorParam === "Configuration") {
+        setMessage({
+          type: "error",
+          text: "Social sign-in provider is not configured or client keys are missing. Please check your environment variables.",
+        })
+      } else if (errorParam === "OAuthCallback") {
+        setMessage({
+          type: "error",
+          text: "Could not complete sign in with social provider. Please try again.",
+        })
+      } else if (errorParam === "AccessDenied") {
+        setMessage({
+          type: "error",
+          text: "Access denied by social provider.",
+        })
+      } else {
+        setMessage({
+          type: "error",
+          text: "An error occurred during authentication. Please try again.",
+        })
+      }
+    }
+  }, [searchParams])
 
   // Password Form
   const passwordForm = useForm<LoginPasswordInput>({

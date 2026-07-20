@@ -204,7 +204,7 @@ export function AuthButton() {
     )
   }
 
-  return <button onClick={() => signIn()}>Sign In</button>
+  return <button onClick={() => signIn()}>Sign in</button>
 }
 ```
 
@@ -270,7 +270,7 @@ export const config = {
 }
 ```
 
-## Custom Sign In Page
+## Custom Sign in Page
 
 ```tsx
 // app/auth/signin/page.tsx
@@ -299,7 +299,7 @@ export default function SignIn() {
 
   return (
     <div className="signin-page">
-      <h1>Sign In</h1>
+      <h1>Sign in</h1>
 
       {error && <div className="error">Authentication failed</div>}
 
@@ -316,7 +316,7 @@ export default function SignIn() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
         />
-        <button type="submit">Sign In</button>
+        <button type="submit">Sign in</button>
       </form>
 
       <div className="divider">or</div>
@@ -402,7 +402,7 @@ callbacks: {
 }
 ```
 
-### Sign In Callback
+### Sign in Callback
 
 ```typescript
 callbacks: {

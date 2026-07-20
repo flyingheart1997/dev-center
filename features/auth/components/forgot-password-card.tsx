@@ -15,7 +15,7 @@ export function ForgotPasswordCard() {
 
   return (
     <Card className="w-full border-slate-200 dark:border-slate-800">
-      <CardHeader className="text-center space-y-1">
+      <CardHeader className="text-center space-y-1 pt-4">
         <CardTitle className="text-2xl font-bold">Forgot Password</CardTitle>
         <CardDescription>Enter your account email to receive a password reset link</CardDescription>
       </CardHeader>
@@ -57,7 +57,7 @@ export function ForgotPasswordCard() {
         <p className="text-xs text-muted-foreground">
           Remember your password?{" "}
           <Link href="/login" className="text-primary font-semibold hover:underline">
-            Back to Sign In
+            Back to Sign in
           </Link>
         </p>
         <p className="text-xs text-center text-muted-foreground">
