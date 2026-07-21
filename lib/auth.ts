@@ -222,14 +222,14 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id
-        session.user.email = token.email
-        session.user.organizationId = token.organizationId
-        session.user.employeeId = token.employeeId
-        session.user.candidateId = token.candidateId
-        session.user.role = token.role
-        session.user.employeeStatus = token.employeeStatus
+      if (token && (token.id || token.sub) && session.user) {
+        session.user.id = (token.id || token.sub) as string
+        session.user.email = (token.email || session.user.email || "") as string
+        session.user.organizationId = (token.organizationId as any) || null
+        session.user.employeeId = (token.employeeId as any) || null
+        session.user.candidateId = (token.candidateId as any) || null
+        session.user.role = (token.role as any) || null
+        session.user.employeeStatus = (token.employeeStatus as any) || null
       }
       return session
     },

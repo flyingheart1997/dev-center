@@ -5,6 +5,7 @@ import { AuthProvider } from "@/components/providers/auth-provider"
 import { TRPCProvider } from "@/lib/trpc/provider"
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -24,11 +25,13 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}
     >
-      <body>
+      <body suppressHydrationWarning>
         <AuthProvider>
           <TRPCProvider>
             <ThemeProvider>
-              {children}
+              <TooltipProvider>
+                {children}
+              </TooltipProvider>
             </ThemeProvider>
           </TRPCProvider>
         </AuthProvider>

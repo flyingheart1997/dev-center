@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import React, { useState, createContext, useContext } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Menu as IconMenu2, X as IconX } from "lucide-react";
+import { Tooltip } from "./tooltip";
 
 interface Links {
   label: string;
@@ -88,7 +89,7 @@ export const DesktopSidebar = ({
     <>
       <motion.div
         className={cn(
-          "h-full px-4 py-4 hidden md:flex md:flex-col bg-neutral-100 dark:bg-neutral-800 w-75 shrink-0",
+          "h-full px-2.5 py-4 hidden md:flex md:flex-col bg-neutral-100 dark:bg-neutral-800 w-75 shrink-0",
           className
         )}
         animate={{
@@ -114,7 +115,7 @@ export const MobileSidebar = ({
     <>
       <div
         className={cn(
-          "h-10 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-neutral-100 dark:bg-neutral-800 w-full"
+          "h-10 px-2 py-4 flex flex-row md:hidden items-center justify-between bg-neutral-100 dark:bg-neutral-800 w-full"
         )}
         {...props}
       >
@@ -157,22 +158,29 @@ export const MobileSidebar = ({
 export const SidebarLink = ({
   link,
   className,
+  active,
   ...props
 }: {
   link: Links;
   className?: string;
+  active?: boolean;
 }) => {
   const { open, animate } = useSidebar();
   return (
     <a
       href={link.href}
       className={cn(
-        "flex items-center justify-start gap-2 group/sidebar py-2",
+        "flex justify-start items-center rounded-md group/sidebar hover:bg-neutral-200/80 dark:hover:bg-neutral-700/40 bg-clip-padding backdrop-filter backdrop-blur-sm bg-opacity-10 ",
+        active && "bg-neutral-200/80 dark:bg-neutral-700/40",
         className
       )}
       {...props}
     >
-      {link.icon}
+      <Tooltip content={!open ? link.label : ""} side={"right"} align={"center"}>
+        <div className="h-10 w-10 shrink-0 flex rounded-md items-center justify-center">
+          {link.icon}
+        </div>
+      </Tooltip>
 
       <motion.span
         animate={{
