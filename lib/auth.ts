@@ -181,41 +181,44 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id
-        token.email = user.email!
-        token.organizationId = user.organizationId
-        token.employeeId = user.employeeId
-        token.candidateId = user.candidateId
-        token.role = user.role
-        token.employeeStatus = user.employeeStatus
-      }
+      if (user || trigger === "update") {
+        if (user) {
+          token.id = user.id
+          token.email = user.email!
+          token.organizationId = (user as any).organizationId
+          token.employeeId = (user as any).employeeId
+          token.candidateId = (user as any).candidateId
+          token.role = (user as any).role
+          token.employeeStatus = (user as any).employeeStatus
+        }
 
-      if (trigger === "update" && session) {
-        if (session.organizationId !== undefined) token.organizationId = session.organizationId
-        if (session.employeeId !== undefined) token.employeeId = session.employeeId
-        if (session.candidateId !== undefined) token.candidateId = session.candidateId
-        if (session.role !== undefined) token.role = session.role
-        if (session.employeeStatus !== undefined) token.employeeStatus = session.employeeStatus
-      }
+        if (trigger === "update" && session) {
+          if (session.organizationId !== undefined) token.organizationId = session.organizationId
+          if (session.employeeId !== undefined) token.employeeId = session.employeeId
+          if (session.candidateId !== undefined) token.candidateId = session.candidateId
+          if (session.role !== undefined) token.role = session.role
+          if (session.employeeStatus !== undefined) token.employeeStatus = session.employeeStatus
+        }
 
-      if (token.id && (!token.employeeId || !token.candidateId)) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id },
-          include: {
-            employees: { take: 1, orderBy: { createdAt: "desc" } },
-            candidates: { take: 1, orderBy: { createdAt: "desc" } },
-          },
-        })
+        if (token.id) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            include: {
+              employees: { take: 1, orderBy: { createdAt: "desc" } },
+              candidates: { take: 1, orderBy: { createdAt: "desc" } },
+            },
+          })
 
-        if (dbUser) {
-          const emp = dbUser.employees[0]
-          const cand = dbUser.candidates[0]
-          token.organizationId = emp?.organizationId || null
-          token.employeeId = emp?.id || null
-          token.candidateId = cand?.id || null
-          token.role = emp?.role || null
-          token.employeeStatus = emp?.status || null
+          if (dbUser) {
+            const emp = dbUser.employees[0]
+            const cand = dbUser.candidates[0]
+            token.organizationId = emp?.organizationId || null
+            token.employeeId = emp?.id || null
+            token.candidateId = cand?.id || null
+            token.role = emp?.role || null
+            token.employeeStatus = emp?.status || null
+            token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null
+          }
         }
       }
 
@@ -230,6 +233,7 @@ export const authOptions: NextAuthOptions = {
         session.user.candidateId = (token.candidateId as any) || null
         session.user.role = (token.role as any) || null
         session.user.employeeStatus = (token.employeeStatus as any) || null
+        session.user.emailVerified = (token.emailVerified as any) || null
       }
       return session
     },

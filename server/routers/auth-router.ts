@@ -14,16 +14,29 @@ import {
   employeeRegisterSchema,
   forgotPasswordSchema,
 } from "@/features/auth/schema/auth-schemas"
+import { checkRateLimit } from "@/features/auth/utils/rate-limit"
+import { generateAndSaveToken } from "@/features/auth/utils/token-utils"
 
 export const authRouter = router({
   getSession: publicProcedure.query(async ({ ctx }) => {
     return ctx.session
   }),
 
+  checkEmailExists: publicProcedure
+    .input(z.object({ email: z.string().email("Invalid email address") }))
+    .query(async ({ ctx, input }) => {
+      const email = input.email.trim().toLowerCase()
+      await checkRateLimit(ctx.prisma, `check-email:${email}`, 5, 15 * 60 * 1000)
+      const existingUser = await ctx.prisma.user.findUnique({ where: { email } })
+      return { exists: !!existingUser }
+    }),
+
   registerCandidate: publicProcedure
     .input(candidateRegisterSchema)
     .mutation(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
+
+      await checkRateLimit(ctx.prisma, `register:${email}`, 3, 15 * 60 * 1000)
 
       const existingUser = await ctx.prisma.user.findUnique({
         where: { email },
@@ -42,6 +55,7 @@ export const authRouter = router({
         data: {
           name: input.name,
           email,
+          phone: input.phone || null,
           accounts: {
             create: {
               type: "credentials",
@@ -50,24 +64,13 @@ export const authRouter = router({
             },
           },
           candidates: {
-            create: {
-              name: input.name,
-              email,
-              phone: input.phone,
-            },
+            create: {},
           },
         },
       })
 
       // Generate verification token
-      const token = crypto.randomUUID()
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      const identifier = `verify-email:${email}`
-
-      await ctx.prisma.verificationToken.deleteMany({ where: { identifier } })
-      await ctx.prisma.verificationToken.create({
-        data: { identifier, token, expires: expiresAt },
-      })
+      const token = await generateAndSaveToken(ctx.prisma, `verify-email:${email}`, 24 * 60 * 60 * 1000)
 
       const appUrl = getAppUrl()
       const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
@@ -91,6 +94,8 @@ export const authRouter = router({
     .input(employeeRegisterSchema)
     .mutation(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
+
+      await checkRateLimit(ctx.prisma, `register:${email}`, 3, 15 * 60 * 1000)
 
       const existingUser = await ctx.prisma.user.findUnique({
         where: { email },
@@ -119,27 +124,31 @@ export const authRouter = router({
           where: { token: input.invitationToken },
         })
 
-        if (invitation && invitation.expiresAt > new Date()) {
-          targetOrgId = invitation.organizationId
-          inviteScope = {
-            role: invitation.role as EmployeeRole,
-            businessUnitId: invitation.businessUnitId,
-            branchId: invitation.branchId,
-            departmentId: invitation.departmentId,
-            status: EmployeeStatus.ACTIVE,
-          }
+        if (!invitation || invitation.expiresAt < new Date()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or expired invitation token.",
+          })
+        }
+
+        if (invitation.email.toLowerCase() !== email) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "This invitation is not valid for this email address.",
+          })
+        }
+
+        targetOrgId = invitation.organizationId
+        inviteScope = {
+          role: invitation.role as EmployeeRole,
+          businessUnitId: invitation.businessUnitId,
+          branchId: invitation.branchId,
+          departmentId: invitation.departmentId,
+          status: EmployeeStatus.ACTIVE,
         }
       }
 
-      if (!targetOrgId && email.includes("@")) {
-        const emailDomain = email.split("@")[1]
-        const matchingOrg = await ctx.prisma.organization.findUnique({
-          where: { domain: emailDomain },
-        })
-        if (matchingOrg) {
-          targetOrgId = matchingOrg.id
-        }
-      }
+      // Domain auto-join has been intentionally removed. Users must be explicitly invited.
 
       if (!targetOrgId) {
         const companyName = input.name + "'s Organization"
@@ -164,8 +173,8 @@ export const authRouter = router({
           employees: {
             create: {
               organizationId: targetOrgId,
-              role: inviteScope.role ?? EmployeeRole.INTERVIEWER,
-              status: inviteScope.status ?? EmployeeStatus.PENDING_APPROVAL,
+              role: inviteScope.role ?? EmployeeRole.OWNER,
+              status: inviteScope.status ?? EmployeeStatus.ACTIVE,
               businessUnitId: inviteScope.businessUnitId ?? null,
               branchId: inviteScope.branchId ?? null,
               departmentId: inviteScope.departmentId ?? null,
@@ -175,14 +184,13 @@ export const authRouter = router({
       })
 
       // Send verification email
-      const token = crypto.randomUUID()
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      const identifier = `verify-email:${email}`
+      const token = await generateAndSaveToken(ctx.prisma, `verify-email:${email}`, 24 * 60 * 60 * 1000)
 
-      await ctx.prisma.verificationToken.deleteMany({ where: { identifier } })
-      await ctx.prisma.verificationToken.create({
-        data: { identifier, token, expires: expiresAt },
-      })
+      if (input.invitationToken) {
+        await ctx.prisma.employeeInvitation.delete({
+          where: { token: input.invitationToken },
+        })
+      }
 
       const appUrl = getAppUrl()
       const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
@@ -197,8 +205,126 @@ export const authRouter = router({
 
       return {
         success: true,
-        message: "Employee account created! Please check your email to verify your account.",
+        message: "Employer account created! Please check your email to verify your account.",
         userId: user.id,
+      }
+    }),
+
+  createOrganization: publicProcedure
+    .input(
+      z.object({
+        companyName: z.string().min(2, "Company name is required"),
+        domain: z.string().optional(),
+        websiteUrl: z.string().url("Invalid website URL").optional().or(z.literal("")),
+        linkedinUrl: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
+        industry: z.string().optional(),
+        city: z.string().optional(),
+        country: z.string().optional(),
+        timezone: z.string().default("UTC"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.session?.user?.id) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to create an organization.",
+        })
+      }
+
+      const userId = ctx.session.user.id
+      const domain = input.domain?.trim().toLowerCase() || null
+
+      if (domain) {
+        const PUBLIC_DOMAINS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com"]
+        if (PUBLIC_DOMAINS.includes(domain)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Public email domains cannot be registered as an organization domain.",
+          })
+        }
+
+        const existingDomainOrg = await ctx.prisma.organization.findUnique({ where: { domain } })
+        if (existingDomainOrg) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `An organization with domain '${domain}' is already registered.`,
+          })
+        }
+      }
+
+      const currentEmployee = await ctx.prisma.employee.findFirst({
+        where: { userId },
+      })
+
+      if (!currentEmployee) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No initial employee profile found for the user.",
+        })
+      }
+
+      // Update Organization + BusinessUnit + HQ Branch + Department
+      const updatedOrg = await ctx.prisma.organization.update({
+        where: { id: currentEmployee.organizationId },
+        data: {
+          name: input.companyName.trim(),
+          domain,
+          websiteUrl: input.websiteUrl || null,
+          linkedinUrl: input.linkedinUrl || null,
+          industry: input.industry || null,
+          businessUnits: {
+            create: {
+              name: "Main Operations",
+              branches: {
+                create: {
+                  name: "Headquarters",
+                  isHeadOffice: true,
+                  city: input.city || null,
+                  country: input.country || null,
+                  timezone: input.timezone,
+                  organizationId: currentEmployee.organizationId,
+                  departments: {
+                    create: {
+                      name: "General Management",
+                      organizationId: currentEmployee.organizationId,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        include: {
+          businessUnits: {
+            include: {
+              branches: {
+                include: {
+                  departments: true,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      const bu = updatedOrg.businessUnits?.[updatedOrg.businessUnits.length - 1]
+      const branch = bu?.branches?.[bu.branches.length - 1]
+      const dept = branch?.departments?.[branch.departments.length - 1]
+
+      await ctx.prisma.employee.update({
+        where: { id: currentEmployee.id },
+        data: {
+          businessUnitId: bu?.id || null,
+          branchId: branch?.id || null,
+          departmentId: dept?.id || null,
+        },
+      })
+
+      return {
+        success: true,
+        organizationId: updatedOrg.id,
+        employeeId: currentEmployee.id,
+        message: "Organization & Headquarters updated successfully!",
       }
     }),
 
@@ -206,6 +332,8 @@ export const authRouter = router({
     .input(z.object({ email: z.string().email("Invalid email address") }))
     .mutation(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
+
+      await checkRateLimit(ctx.prisma, `otp:${email}`, 3, 5 * 60 * 1000)
 
       const user = await ctx.prisma.user.findUnique({ where: { email } })
       if (!user) {
@@ -219,10 +347,12 @@ export const authRouter = router({
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
       const identifier = `login-otp:${email}`
 
-      await ctx.prisma.verificationToken.deleteMany({ where: { identifier } })
-      await ctx.prisma.verificationToken.create({
-        data: { identifier, token: otpCode, expires: expiresAt },
-      })
+      await ctx.prisma.$transaction([
+        ctx.prisma.verificationToken.deleteMany({ where: { identifier } }),
+        ctx.prisma.verificationToken.create({
+          data: { identifier, token: otpCode, expires: expiresAt },
+        }),
+      ])
 
       const html = renderLoginOtpTemplate({ otpCode })
       const res = await sendTransactionalEmail({
@@ -272,12 +402,13 @@ export const authRouter = router({
         })
       }
 
-      await ctx.prisma.user.update({
-        where: { email },
-        data: { emailVerified: new Date() },
-      })
-
-      await ctx.prisma.verificationToken.delete({ where: { id: record.id } })
+      await ctx.prisma.$transaction([
+        ctx.prisma.user.update({
+          where: { email },
+          data: { emailVerified: new Date() },
+        }),
+        ctx.prisma.verificationToken.delete({ where: { id: record.id } }),
+      ])
 
       return { success: true, message: "Email verified successfully! You can now log in." }
     }),
@@ -286,20 +417,16 @@ export const authRouter = router({
     .input(forgotPasswordSchema)
     .mutation(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
+
+      await checkRateLimit(ctx.prisma, `reset:${email}`, 3, 15 * 60 * 1000)
+
       const user = await ctx.prisma.user.findUnique({ where: { email } })
 
       if (!user) {
         return { success: true, message: "If an account exists with this email, password reset instructions have been sent." }
       }
 
-      const token = crypto.randomUUID()
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
-      const identifier = `reset-password:${email}`
-
-      await ctx.prisma.verificationToken.deleteMany({ where: { identifier } })
-      await ctx.prisma.verificationToken.create({
-        data: { identifier, token, expires: expiresAt },
-      })
+      const token = await generateAndSaveToken(ctx.prisma, `reset-password:${email}`, 60 * 60 * 1000, 32)
 
       const appUrl = getAppUrl()
       const resetLink = `${appUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`
@@ -364,23 +491,22 @@ export const authRouter = router({
         where: { userId: user.id, provider: "credentials" },
       })
 
-      if (existingAccount) {
-        await ctx.prisma.account.update({
-          where: { id: existingAccount.id },
-          data: { providerAccountId: passwordHash },
-        })
-      } else {
-        await ctx.prisma.account.create({
-          data: {
-            userId: user.id,
-            type: "credentials",
-            provider: "credentials",
-            providerAccountId: passwordHash,
-          },
-        })
-      }
-
-      await ctx.prisma.verificationToken.delete({ where: { id: record.id } })
+      await ctx.prisma.$transaction([
+        existingAccount
+          ? ctx.prisma.account.update({
+              where: { id: existingAccount.id },
+              data: { providerAccountId: passwordHash },
+            })
+          : ctx.prisma.account.create({
+              data: {
+                userId: user.id,
+                type: "credentials",
+                provider: "credentials",
+                providerAccountId: passwordHash,
+              },
+            }),
+        ctx.prisma.verificationToken.delete({ where: { id: record.id } }),
+      ])
 
       return { success: true, message: "Your password has been reset successfully! You can now log in." }
     }),

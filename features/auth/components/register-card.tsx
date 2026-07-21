@@ -2,26 +2,25 @@
 
 import React from "react"
 import Link from "next/link"
-import { Controller } from "react-hook-form"
 import { ArrowLeft } from "lucide-react"
 import { useRegisterForm } from "@/features/auth/hooks/use-register-form"
 import { AlertMessage } from "./alert-message"
-import { SocialAuthButtons } from "./social-auth-buttons"
+import { RegisterIntentStep } from "./register-intent-step"
+import { RegisterEmailStep } from "./register-email-step"
+import { RegisterCredentialsStep } from "./register-credentials-step"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function RegisterCard() {
   const {
     step,
     userType,
-    setUserType,
     candidateForm,
     employeeForm,
+    handleSelectUserType,
     handleNextStep,
     handleBackToStep1,
+    handleBackToStep0,
     handleCandidateRegister,
     handleEmployeeRegister,
     loading,
@@ -29,8 +28,20 @@ export function RegisterCard() {
   } = useRegisterForm()
 
   return (
-    <Card className="w-full border-border bg-card relative">
+    <Card className="w-full border-border bg-card relative shadow-md">
       <CardHeader className="text-center space-y-1 relative">
+        {step === 1 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={handleBackToStep0}
+            className="absolute left-4 top-0 rounded-full h-9 w-9 shadow-sm"
+            aria-label="Back to step 0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
         {step === 2 && (
           <Button
             type="button"
@@ -43,9 +54,15 @@ export function RegisterCard() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
-        <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">Sign up</CardTitle>
+        <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">
+          {step === 0 ? "Get Started with Dev-Center" : "Sign up"}
+        </CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
-          {step === 1 ? "Join Dev-Center to start hiring or preparing with AI." : "Complete your details to finish creating account."}
+          {step === 0
+            ? "Select how you want to use Dev-Center."
+            : step === 1
+            ? "Enter your email to continue."
+            : "Complete your details to finish creating account."}
         </CardDescription>
       </CardHeader>
 
@@ -53,302 +70,30 @@ export function RegisterCard() {
         {/* Alert Message */}
         {message && <AlertMessage message={message} />}
 
-        {/* STEP 1: Email + Social Buttons + Account Type */}
+        {/* STEP 0: Intent Selection */}
+        {step === 0 && <RegisterIntentStep onSelect={handleSelectUserType} />}
+
+        {/* STEP 1: Email & Social Auth */}
         {step === 1 && (
-          <div className="space-y-6">
-            {/* Account Type Selector */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Account Type</Label>
-              <Tabs
-                value={userType}
-                onValueChange={(val) => setUserType(val as "candidate" | "employee")}
-                className="w-full"
-              >
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="candidate">Job Seeker</TabsTrigger>
-                  <TabsTrigger value="employee">Employer</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-
-            {/* Step 1 Email Field */}
-            <div className="space-y-2">
-              <Label htmlFor="step1-email" className="text-sm font-medium text-foreground">
-                Email Address
-              </Label>
-              {userType === "candidate" ? (
-                <Controller
-                  name="email"
-                  control={candidateForm.control}
-                  render={({ field, fieldState }) => (
-                    <div>
-                      <Input
-                        {...field}
-                        id="step1-email"
-                        type="email"
-                        placeholder="hello@app.com"
-                        className="h-11"
-                        aria-invalid={fieldState.invalid}
-                      />
-                      {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                    </div>
-                  )}
-                />
-              ) : (
-                <Controller
-                  name="email"
-                  control={employeeForm.control}
-                  render={({ field, fieldState }) => (
-                    <div>
-                      <Input
-                        {...field}
-                        id="step1-email"
-                        type="email"
-                        placeholder="you@company.com"
-                        className="h-11"
-                        aria-invalid={fieldState.invalid}
-                      />
-                      {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                    </div>
-                  )}
-                />
-              )}
-            </div>
-
-            <Button type="button" onClick={handleNextStep} className="w-full h-11">
-              Continue
-            </Button>
-
-
-            {/* Reusable Multi-Provider Social Auth Buttons */}
-            <SocialAuthButtons providers={["google", "github", "linkedin"]} />
-
-          </div>
+          <RegisterEmailStep
+            userType={userType}
+            candidateForm={candidateForm}
+            employeeForm={employeeForm}
+            onNext={handleNextStep}
+            loading={loading}
+          />
         )}
 
-        {/* STEP 2: Profile Details & Passwords */}
+        {/* STEP 2: Credentials Input */}
         {step === 2 && (
-          <div>
-            {/* Candidate Registration Form */}
-            {userType === "candidate" && (
-              <form onSubmit={candidateForm.handleSubmit(handleCandidateRegister)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cand-email" className="text-sm font-medium text-foreground">
-                    Email Address
-                  </Label>
-                  <Controller
-                    name="email"
-                    control={candidateForm.control}
-                    render={({ field, fieldState }) => (
-                      <div>
-                        <Input
-                          {...field}
-                          id="cand-email"
-                          type="email"
-                          placeholder="hello@app.com"
-                          className="h-11"
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cand-name" className="text-sm font-medium text-foreground">
-                    Full Name
-                  </Label>
-                  <Controller
-                    name="name"
-                    control={candidateForm.control}
-                    render={({ field, fieldState }) => (
-                      <div>
-                        <Input
-                          {...field}
-                          id="cand-name"
-                          placeholder="John Doe"
-                          className="h-11"
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cand-password" className="text-sm font-medium text-foreground">
-                    Password
-                  </Label>
-                  <Controller
-                    name="password"
-                    control={candidateForm.control}
-                    render={({ field, fieldState }) => (
-                      <div>
-                        <Input
-                          {...field}
-                          id="cand-password"
-                          type="password"
-                          placeholder="Minimum 8 characters"
-                          className="h-11"
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cand-confirm-password" className="text-sm font-medium text-foreground">
-                    Confirm Password
-                  </Label>
-                  <Controller
-                    name="confirmPassword"
-                    control={candidateForm.control}
-                    render={({ field, fieldState }) => (
-                      <div>
-                        <Input
-                          {...field}
-                          id="cand-confirm-password"
-                          type="password"
-                          placeholder="Re-enter password"
-                          className="h-11"
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cand-phone" className="text-sm font-medium text-foreground">
-                    Phone Number (Optional)
-                  </Label>
-                  <Controller
-                    name="phone"
-                    control={candidateForm.control}
-                    render={({ field }) => (
-                      <Input
-                        {...field}
-                        value={field.value || ""}
-                        id="cand-phone"
-                        type="tel"
-                        placeholder="+1 (555) 000-0000"
-                        className="h-11"
-                      />
-                    )}
-                  />
-                </div>
-
-                <Button type="submit" disabled={loading} className="w-full h-11">
-                  {loading ? "Creating Account..." : "Create Account"}
-                </Button>
-              </form>
-            )}
-
-            {userType === "employee" && (
-              /* Employee Registration Form */
-              <form onSubmit={employeeForm.handleSubmit(handleEmployeeRegister)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="emp-email" className="text-sm font-medium text-foreground">
-                    Email Address
-                  </Label>
-                  <Controller
-                    name="email"
-                    control={employeeForm.control}
-                    render={({ field, fieldState }) => (
-                      <div>
-                        <Input
-                          {...field}
-                          id="emp-email"
-                          type="email"
-                          placeholder="you@company.com"
-                          className="h-11"
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emp-name" className="text-sm font-medium text-foreground">
-                    Full Name
-                  </Label>
-                  <Controller
-                    name="name"
-                    control={employeeForm.control}
-                    render={({ field, fieldState }) => (
-                      <div>
-                        <Input
-                          {...field}
-                          id="emp-name"
-                          placeholder="Jane Smith"
-                          className="h-11"
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emp-password" className="text-sm font-medium text-foreground">
-                    Password
-                  </Label>
-                  <Controller
-                    name="password"
-                    control={employeeForm.control}
-                    render={({ field, fieldState }) => (
-                      <div>
-                        <Input
-                          {...field}
-                          id="emp-password"
-                          type="password"
-                          placeholder="Minimum 8 characters"
-                          className="h-11"
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="emp-confirm-password" className="text-sm font-medium text-foreground">
-                    Confirm Password
-                  </Label>
-                  <Controller
-                    name="confirmPassword"
-                    control={employeeForm.control}
-                    render={({ field, fieldState }) => (
-                      <div>
-                        <Input
-                          {...field}
-                          id="emp-confirm-password"
-                          type="password"
-                          placeholder="Re-enter password"
-                          className="h-11"
-                          aria-invalid={fieldState.invalid}
-                        />
-                        {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-                      </div>
-                    )}
-                  />
-                </div>
-
-                <Button type="submit" disabled={loading} className="w-full h-11">
-                  {loading ? "Creating Account..." : "Create Account"}
-                </Button>
-              </form>
-            )}
-          </div>
+          <RegisterCredentialsStep
+            userType={userType}
+            candidateForm={candidateForm}
+            employeeForm={employeeForm}
+            onCandidateSubmit={handleCandidateRegister}
+            onEmployeeSubmit={handleEmployeeRegister}
+            loading={loading}
+          />
         )}
       </CardContent>
 
@@ -361,7 +106,7 @@ export function RegisterCard() {
         </p>
 
         <p className="text-xs text-center text-muted-foreground">
-          © Dev-Center · <a href="#" className="hover:underline">Privacy</a> · <a href="#" className="hover:underline">Terms</a>
+          © Dev-Center · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link>
         </p>
       </CardFooter>
     </Card>

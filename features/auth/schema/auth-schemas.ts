@@ -27,6 +27,17 @@ export const employeeRegisterSchema = z
     path: ["confirmPassword"],
   })
 
+export const setupOrgSchema = z.object({
+  companyName: z.string().min(2, "Company Name is required"),
+  domain: z.string().optional(),
+  websiteUrl: z.string().url("Invalid website URL").optional().or(z.literal("")),
+  linkedinUrl: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
+  industry: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
+  timezone: z.string().default("UTC"),
+})
+
 export const loginOtpSchema = z.object({
   email: z.string().email("Invalid email address"),
   otpCode: z.string().length(6, "OTP code must be 6 digits").optional(),
@@ -55,6 +66,7 @@ export const resetPasswordSchema = z
 
 export type CandidateRegisterInput = z.infer<typeof candidateRegisterSchema>
 export type EmployeeRegisterInput = z.infer<typeof employeeRegisterSchema>
+export type SetupOrgInput = z.infer<typeof setupOrgSchema>
 export type LoginOtpInput = z.infer<typeof loginOtpSchema>
 export type LoginPasswordInput = z.infer<typeof loginPasswordSchema>
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>

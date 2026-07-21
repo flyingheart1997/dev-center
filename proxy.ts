@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { EmployeeStatus } from "@/types/enums"
 import { getToken } from "next-auth/jwt"
 
 // NextAuth cookie keys (handles HTTP and HTTPS secure cookie names)
@@ -35,16 +34,13 @@ function isPublicRoute(pathname: string) {
 }
 
 function resolveUserWorkspaceRedirect(token: any, request: NextRequest): NextResponse {
-  if (token?.employeeStatus === EmployeeStatus.PENDING_APPROVAL) {
-    return NextResponse.redirect(getSafeRedirectUrl("/pending-approval", request))
-  }
   if (token?.organizationId || token?.employeeId) {
     return NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
   }
   if (token?.candidateId) {
     return NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
   }
-  return NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
+  return NextResponse.redirect(getSafeRedirectUrl("/setup-org", request))
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
@@ -94,7 +90,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(loginUrl)
   }
 
-  // 4. AUTHENTICATED USER ROUTING
+  // 4. EMAIL VERIFICATION GATE
+  // If user is logged in but email is NOT verified, force redirect to /verify-email
+  if (isAuthenticated && !token?.emailVerified && pathname !== "/verify-email") {
+    if (!isAppRouterDataRequest(request)) {
+      const verifyUrl = getSafeRedirectUrl("/verify-email", request)
+      if (token?.email) verifyUrl.searchParams.set("email", token.email)
+      return NextResponse.redirect(verifyUrl)
+    }
+  }
+
+  // 5. AUTHENTICATED USER ROUTING
   const isGuestAuthRoute = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password"
 
   // Logged-in user visiting guest auth routes (/login, /register, /forgot-password) -> Redirect to workspace
@@ -102,16 +108,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return resolveUserWorkspaceRedirect(token, request)
   }
 
-  // Logged-in user visiting /onboarding after already being onboarded -> Redirect to workspace
-  if (isAuthenticated && pathname.startsWith("/onboarding") && !isAppRouterDataRequest(request)) {
-    if (token?.organizationId || token?.employeeId || token?.candidateId || token?.employeeStatus === EmployeeStatus.PENDING_APPROVAL) {
-      return resolveUserWorkspaceRedirect(token, request)
+  // Logged-in user visiting /dashboard/* when Org setup is incomplete -> Redirect to /setup-org
+  if (isAuthenticated && pathname.startsWith("/dashboard") && !token?.organizationId && !token?.employeeId) {
+    if (!isAppRouterDataRequest(request)) {
+      return NextResponse.redirect(getSafeRedirectUrl("/setup-org", request))
     }
   }
 
-  // Logged-in employee with PENDING_APPROVAL accessing /dashboard/* -> Redirect to /pending-approval
-  if (isAuthenticated && pathname.startsWith("/dashboard") && token?.employeeStatus === EmployeeStatus.PENDING_APPROVAL) {
-    return NextResponse.redirect(getSafeRedirectUrl("/pending-approval", request))
+  // Logged-in user visiting /setup-org when Org is ALREADY set up -> Redirect to /dashboard
+  if (isAuthenticated && pathname === "/setup-org" && (token?.organizationId || token?.employeeId)) {
+    if (!isAppRouterDataRequest(request)) {
+      return NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
+    }
   }
 
   return NextResponse.next()
