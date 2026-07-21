@@ -199,7 +199,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         await prisma.verificationToken.delete({ where: { id: verificationToken.id } })
-        
+
         await clearFailedLogins(email)
 
         const user = await prisma.user.findUnique({
@@ -237,9 +237,27 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+  events: {
+    async createUser({ user }) {
+      if (user.id) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() },
+        }).catch(() => { })
+      }
+    },
+    async linkAccount({ user }) {
+      if (user.id) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() },
+        }).catch(() => { })
+      }
+    },
+  },
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider && account.provider !== "credentials" && account.provider !== "credentials-otp") {
+      if (account?.provider && account.provider !== "credentials" && account.provider !== "credentials-password" && account.provider !== "credentials-otp") {
         if (!user.email) return false
 
         const existingUser = await prisma.user.findUnique({
@@ -255,7 +273,7 @@ export const authOptions: NextAuthOptions = {
       }
       return true
     },
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, account, trigger, session }) {
       if (user || trigger === "update") {
         if (user) {
           token.id = user.id
@@ -274,29 +292,43 @@ export const authOptions: NextAuthOptions = {
           if (session.role !== undefined) token.role = session.role
           if (session.employeeStatus !== undefined) token.employeeStatus = session.employeeStatus
         }
+      }
 
-        if (token.id) {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            include: {
-              employees: { take: 1, orderBy: { createdAt: "desc" } },
-              candidates: { take: 1, orderBy: { createdAt: "desc" } },
-            },
-          })
+      if (token.id || token.sub) {
+        const userId = (token.id || token.sub) as string
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userId },
+          include: {
+            accounts: true,
+            employees: { take: 1, orderBy: { createdAt: "desc" } },
+            candidates: { take: 1, orderBy: { createdAt: "desc" } },
+          },
+        })
 
-          if (dbUser) {
-            const emp = dbUser.employees[0]
-            const cand = dbUser.candidates[0]
-            token.organizationId = emp?.organizationId || null
-            token.employeeId = emp?.id || null
-            token.candidateId = cand?.id || null
-            token.role = emp?.role || null
-            token.employeeStatus = emp?.status || null
-            token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null
-          } else {
-            token.id = null as any
-            token.email = null as any
+        if (dbUser) {
+          token.id = dbUser.id
+          token.email = dbUser.email!
+          const isOAuthUser = dbUser.accounts.some((a) => a.provider !== "credentials" && a.provider !== "credentials-password" && a.provider !== "credentials-otp")
+          let verifiedDate = dbUser.emailVerified
+          if ((isOAuthUser || (account && account.provider !== "credentials-password" && account.provider !== "credentials-otp")) && !verifiedDate) {
+            verifiedDate = new Date()
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: { emailVerified: verifiedDate },
+            }).catch(() => { })
           }
+
+          const emp = dbUser.employees[0]
+          const cand = dbUser.candidates[0]
+          token.organizationId = emp?.organizationId || null
+          token.employeeId = emp?.id || null
+          token.candidateId = cand?.id || null
+          token.role = emp?.role || null
+          token.employeeStatus = emp?.status || null
+          token.emailVerified = verifiedDate ? verifiedDate.toISOString() : null
+        } else {
+          token.id = null as any
+          token.email = null as any
         }
       }
 

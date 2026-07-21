@@ -1,9 +1,9 @@
 "use client"
 
-import React from "react"
+import React, { Fragment } from "react"
 import Link from "next/link"
 import { Controller } from "react-hook-form"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { useLoginForm } from "@/features/auth/hooks/use-login-form"
 import { PasswordInput } from "@/components/ui/password-input"
 import { SocialAuthButtons } from "./social-auth-buttons"
@@ -21,7 +21,6 @@ export function LoginCard() {
     loginMethod,
     setLoginMethod,
     otpSent,
-    setOtpSent,
     loading,
     message,
     passwordForm,
@@ -30,7 +29,10 @@ export function LoginCard() {
     handleBackToStep1,
     handlePasswordLogin,
     handleOtpLogin,
-    isCheckingEmail,
+    handleSendOtp,
+    otpSubmitButtonText,
+    resendButtonText,
+    isResendDisabled,
   } = useLoginForm()
 
   return (
@@ -114,10 +116,17 @@ export function LoginCard() {
             <Button
               type="button"
               onClick={handleContinueToStep2}
-              disabled={isCheckingEmail}
+              disabled={loading}
               className="w-full h-11"
             >
-              {isCheckingEmail ? "Checking..." : "Continue"}
+              {loading ? (
+                <Fragment>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking...
+                </Fragment>
+              ) : (
+                "Continue"
+              )}
             </Button>
 
             {/* Reusable Multi-Provider Social Auth Buttons */}
@@ -190,7 +199,14 @@ export function LoginCard() {
                     />
                   </div>
                   <Button type="submit" disabled={loading} className="w-full h-11">
-                    {loading ? "Signing in..." : "Sign in with Password"}
+                    {loading ? (
+                      <Fragment>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </Fragment>
+                    ) : (
+                      "Sign in with Password"
+                    )}
                   </Button>
                 </form>
               </TabsContent>
@@ -212,7 +228,7 @@ export function LoginCard() {
                             id="step2-otp-email"
                             type="email"
                             placeholder="hello@app.com"
-                            disabled={otpSent}
+                            disabled={otpSent || loading}
                             className="h-11"
                             aria-invalid={fieldState.invalid}
                           />
@@ -225,7 +241,7 @@ export function LoginCard() {
                   </div>
 
                   {otpSent && (
-                    <div className="space-y-2 flex flex-col items-center">
+                    <div className="space-y-3 flex flex-col items-center">
                       <Label htmlFor="otp-code" className="self-start text-sm font-medium text-foreground">
                         Enter 6-Digit OTP Code
                       </Label>
@@ -238,6 +254,7 @@ export function LoginCard() {
                               maxLength={6}
                               value={field.value || ""}
                               onChange={field.onChange}
+                              disabled={loading}
                               aria-invalid={fieldState.invalid}
                             >
                               <InputOTPGroup>
@@ -258,11 +275,22 @@ export function LoginCard() {
                           </div>
                         )}
                       />
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        disabled={isResendDisabled}
+                        onClick={() => handleSendOtp(otpForm.getValues("email"))}
+                        className="text-xs text-primary font-medium p-0 h-auto"
+                      >
+                        {resendButtonText}
+                      </Button>
                     </div>
                   )}
 
                   <Button type="submit" disabled={loading} className="w-full h-11">
-                    {loading ? "Processing..." : otpSent ? "Verify Code & Sign in" : "Send 6-Digit OTP Code"}
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {otpSubmitButtonText}
                   </Button>
                 </form>
               </TabsContent>
@@ -280,7 +308,7 @@ export function LoginCard() {
         </p>
 
         <p className="text-xs text-center text-muted-foreground">
-          © Dev-Center · <a href="#" className="hover:underline">Privacy</a> · <a href="#" className="hover:underline">Terms</a>
+          © Dev-Center · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link>
         </p>
       </CardFooter>
     </Card>

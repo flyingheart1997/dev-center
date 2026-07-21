@@ -23,26 +23,26 @@ export function RegisterCard() {
 
   return (
     <Card className="w-full border-border bg-card relative shadow-md">
-      <CardHeader className="text-center space-y-1 pt-4 relative">
+      <CardHeader className="text-center space-y-2 pt-4 relative">
         {step === 2 && (
           <Button
             type="button"
             variant="outline"
             size="icon"
             onClick={handleBackToStep1}
-            className="absolute left-4 top-0 rounded-full h-9 w-9 shadow-sm"
+            className="absolute left-4 top-2 rounded-full h-9 w-9 shadow-sm"
             aria-label="Back to step 1"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
-        <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">
-          Sign up
+        <CardTitle className="text-3xl font-bold tracking-tight text-foreground">
+          Create your Account
         </CardTitle>
-        <CardDescription className="text-sm text-muted-foreground">
+        <CardDescription className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
           {step === 1
-            ? "Enter your email to continue."
-            : "Complete your details to finish creating account."}
+            ? "Join Dev Center for AI-powered screening, live interviews, and candidate management."
+            : "Enter your full name and set a secure password to complete setting up your account."}
         </CardDescription>
       </CardHeader>
 

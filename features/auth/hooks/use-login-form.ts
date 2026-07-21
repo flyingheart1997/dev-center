@@ -16,10 +16,26 @@ import {
 export function useLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const trpcUtils = trpc.useUtils()
+  const sendOtpMutation = trpc.auth.sendLoginOtp.useMutation()
+
   const [step, setStep] = useState<1 | 2>(1)
   const [loginMethod, setLoginMethod] = useState<"otp" | "password">("password")
   const [otpSent, setOtpSent] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  // 60-second cooldown timer effect for OTP resending
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+
+    const interval = setInterval(() => {
+      setResendCooldown((prev) => (prev <= 1 ? 0 : prev - 1))
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [resendCooldown])
 
   useEffect(() => {
     const errorParam = searchParams?.get("error")
@@ -65,10 +81,6 @@ export function useLoginForm() {
     defaultValues: { email: "", otpCode: "" },
   })
 
-  const sendOtpMutation = trpc.auth.sendLoginOtp.useMutation()
-  const trpcUtils = trpc.useUtils()
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
-
   const handleContinueToStep2 = async () => {
     setMessage(null)
     const emailToValidate =
@@ -82,26 +94,25 @@ export function useLoginForm() {
       return
     }
 
-    // Check if email is registered
-    setIsCheckingEmail(true)
+    setLoading(true)
     try {
       const res = await trpcUtils.auth.checkEmailExists.fetch({ email: emailToValidate.trim() })
       if (!res.exists) {
         const activeForm = loginMethod === "password" ? passwordForm : otpForm
         activeForm.setError("email", { message: "This email is not registered. Please create an account first." })
-        setIsCheckingEmail(false)
         return
       }
+
+      // Synchronize email across both forms
+      passwordForm.setValue("email", emailToValidate.trim())
+      otpForm.setValue("email", emailToValidate.trim())
+
+      setStep(2)
     } catch (error) {
       console.error("Failed to check email", error)
+    } finally {
+      setLoading(false)
     }
-    setIsCheckingEmail(false)
-
-    // Synchronize email across both forms
-    passwordForm.setValue("email", emailToValidate.trim())
-    otpForm.setValue("email", emailToValidate.trim())
-
-    setStep(2)
   }
 
   const handleBackToStep1 = () => {
@@ -112,6 +123,7 @@ export function useLoginForm() {
 
   const handlePasswordLogin = async (data: LoginPasswordInput) => {
     setMessage(null)
+    setLoading(true)
     try {
       const res = await signIn("credentials-password", {
         redirect: false,
@@ -124,20 +136,28 @@ export function useLoginForm() {
       } else {
         setMessage({ type: "success", text: "Logged in successfully! Redirecting..." })
         router.push("/dashboard")
+        router.refresh()
       }
     } catch {
       setMessage({ type: "error", text: "An unexpected error occurred." })
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleSendOtp = async (email: string) => {
+    if (resendCooldown > 0) return
     setMessage(null)
+    setLoading(true)
     try {
       const res = await sendOtpMutation.mutateAsync({ email: email.trim() })
       setOtpSent(true)
+      setResendCooldown(60) // 60s cooldown timer
       setMessage({ type: "success", text: res.message })
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Failed to send OTP code." })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -153,6 +173,7 @@ export function useLoginForm() {
     }
 
     setMessage(null)
+    setLoading(true)
     try {
       const res = await signIn("credentials-otp", {
         redirect: false,
@@ -165,10 +186,33 @@ export function useLoginForm() {
       } else {
         setMessage({ type: "success", text: "Logged in successfully! Redirecting..." })
         router.push("/dashboard")
+        router.refresh()
       }
     } catch {
       setMessage({ type: "error", text: "An unexpected error occurred." })
+    } finally {
+      setLoading(false)
     }
+  }
+
+  const isFormLoading =
+    loading ||
+    passwordForm.formState.isSubmitting ||
+    otpForm.formState.isSubmitting ||
+    sendOtpMutation.isPending
+
+  const getOtpSubmitButtonText = () => {
+    if (isFormLoading) {
+      return otpSent ? "Signing in..." : "Sending OTP Code..."
+    }
+    return otpSent ? "Verify Code & Sign in" : "Send OTP Code"
+  }
+
+  const getResendButtonText = () => {
+    if (resendCooldown > 0) {
+      return `Resend OTP in ${resendCooldown}s`
+    }
+    return "Didn't receive code? Resend OTP"
   }
 
   return {
@@ -178,6 +222,7 @@ export function useLoginForm() {
     setLoginMethod,
     otpSent,
     setOtpSent,
+    resendCooldown,
     message,
     passwordForm,
     otpForm,
@@ -186,7 +231,9 @@ export function useLoginForm() {
     handlePasswordLogin,
     handleOtpLogin,
     handleSendOtp,
-    isCheckingEmail,
-    loading: passwordForm.formState.isSubmitting || sendOtpMutation.isPending || otpForm.formState.isSubmitting,
+    loading: isFormLoading,
+    otpSubmitButtonText: getOtpSubmitButtonText(),
+    resendButtonText: getResendButtonText(),
+    isResendDisabled: isFormLoading || resendCooldown > 0,
   }
 }

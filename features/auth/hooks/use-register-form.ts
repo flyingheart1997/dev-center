@@ -66,7 +66,8 @@ export function useRegisterForm() {
       setMessage({ type: "success", text: res.message })
       setTimeout(() => {
         router.push(`/verify-email?email=${encodeURIComponent(data.email.trim())}`)
-      }, 1500)
+        router.refresh()
+      }, 2000)
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Failed to create account." })
     }

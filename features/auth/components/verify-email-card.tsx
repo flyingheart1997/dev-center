@@ -72,7 +72,7 @@ export function VerifyEmailCard() {
         }
 
         <p className="text-xs text-center text-muted-foreground">
-          © Dev-Center · <a href="#" className="hover:underline">Privacy</a> · <a href="#" className="hover:underline">Terms</a>
+          © Dev-Center · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link>
         </p>
       </CardFooter>
     </Card>

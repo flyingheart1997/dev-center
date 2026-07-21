@@ -42,12 +42,12 @@ export function ResetPasswordCard() {
               control={form.control}
               render={({ field, fieldState }) => (
                 <div>
-                  <PasswordInput 
-                    className="h-11" 
-                    {...field} 
-                    id="new-password" 
-                    placeholder="Minimum 8 characters" 
-                    aria-invalid={fieldState.invalid} 
+                  <PasswordInput
+                    className="h-11"
+                    {...field}
+                    id="new-password"
+                    placeholder="Minimum 8 characters"
+                    aria-invalid={fieldState.invalid}
                     onGenerate={() => {
                       const pwd = generateStrongPassword()
                       form.setValue("newPassword", pwd, { shouldValidate: true })
@@ -89,7 +89,7 @@ export function ResetPasswordCard() {
         </p>
 
         <p className="text-xs text-center text-muted-foreground">
-          © Dev-Center · <a href="#" className="hover:underline">Privacy</a> · <a href="#" className="hover:underline">Terms</a>
+          © Dev-Center · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link>
         </p>
       </CardFooter>
     </Card>

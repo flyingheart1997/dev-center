@@ -4,11 +4,13 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { trpc } from "@/lib/trpc/client"
 import { setupOrgSchema, SetupOrgInput } from "../schema/auth-schemas"
 
 export function useSetupOrgForm() {
   const router = useRouter()
+  const { update } = useSession()
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   const form = useForm<SetupOrgInput>({
@@ -42,10 +44,17 @@ export function useSetupOrgForm() {
       })
 
       setMessage({ type: "success", text: res.message })
+
+      // Refresh NextAuth session JWT cookie with new Organization & Employee IDs
+      await update({
+        organizationId: res.organizationId,
+        employeeId: res.employeeId,
+      })
+
       setTimeout(() => {
         router.push("/dashboard")
         router.refresh()
-      }, 1500)
+      }, 2000)
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Failed to create organization." })
     }

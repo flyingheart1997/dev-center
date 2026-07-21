@@ -21,12 +21,21 @@ function getSafeRedirectUrl(targetPath: string, request: NextRequest): URL {
 }
 
 function isPublicRoute(pathname: string) {
-  const publicRoutes = ["/login", "/register", "/forgot-password", "/privacy", "/terms"]
+  const publicRoutes = [
+    "/login",
+    "/register",
+    "/verify-email",
+    "/forgot-password",
+    "/reset-password",
+    "/privacy",
+    "/terms",
+  ]
   const isStaticAsset = /\.(png|jpg|jpeg|gif|webp|svg|ico|css|js)$/i.test(pathname)
 
   return (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/trpc") ||
     pathname.startsWith("/public") ||
     isStaticAsset ||
     publicRoutes.some((route) => pathname === route || pathname.startsWith(route + "/"))

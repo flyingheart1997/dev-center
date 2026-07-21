@@ -232,7 +232,7 @@ export function ProtectedComponent({ children }: { children: React.ReactNode }) 
   }
 
   if (status === 'authenticated') {
-    return <>{children}</>
+    return <Fragment>{children}</Fragment>
   }
 
   return null

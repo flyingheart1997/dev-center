@@ -15,6 +15,7 @@ import {
 } from "@/features/auth/schema/auth-schemas"
 import { checkRateLimit } from "@/features/auth/utils/rate-limit"
 import { generateAndSaveToken } from "@/features/auth/utils/token-utils"
+import { isPublicEmailDomain } from "@/features/auth/utils/domain-utils"
 
 export const authRouter = router({
   getSession: publicProcedure.query(async ({ ctx }) => {
@@ -71,6 +72,11 @@ export const authRouter = router({
       const appUrl = getAppUrl()
       const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
 
+      console.log("==================================================")
+      console.log(`🔑 DEV VERIFICATION LINK FOR NEW USER [${email}]:`)
+      console.log(verifyLink)
+      console.log("==================================================")
+
       const html = renderEmailVerificationTemplate({ userName: input.name, verifyLink })
       await sendTransactionalEmail({
         to: email,
@@ -120,7 +126,7 @@ export const authRouter = router({
 
       return {
         success: true,
-        message: "Candidate profile created successfully.",
+        message: "Candidate profile created successfully. Redirecting to candidate dashboard...",
       }
     }),
 
@@ -128,11 +134,19 @@ export const authRouter = router({
     .input(setupOrgSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id
+
+      const user = await ctx.prisma.user.findUnique({ where: { id: userId } })
+      if (!user?.email || isPublicEmailDomain(user.email)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Organizations cannot be created using personal email accounts (e.g. gmail.com, outlook.com). Please sign up with your company work email.",
+        })
+      }
+
       const domain = input.domain?.trim().toLowerCase() || null
 
       if (domain) {
-        const PUBLIC_DOMAINS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com"]
-        if (PUBLIC_DOMAINS.includes(domain)) {
+        if (isPublicEmailDomain(`test@${domain}`)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Public email domains cannot be registered as an organization domain.",
@@ -257,6 +271,10 @@ export const authRouter = router({
         }),
       ])
 
+      console.log("==================================================")
+      console.log(`🔑 DEV LOGIN OTP CODE FOR [${email}]: ${otpCode}`)
+      console.log("==================================================")
+
       const html = renderLoginOtpTemplate({ otpCode })
       const res = await sendTransactionalEmail({
         to: email,
@@ -266,6 +284,12 @@ export const authRouter = router({
       })
 
       if (!res.success) {
+        if (res.error?.includes("only send testing emails") || res.error?.includes("resend.com/domains")) {
+          return {
+            success: true,
+            message: `OTP Code generated! (Resend Sandbox Mode: Your 6-digit OTP code [${otpCode}] is printed in your server terminal console).`,
+          }
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to send email: ${res.error}`,
@@ -332,10 +356,16 @@ export const authRouter = router({
         })
       }
 
+      // Generate verification token
       const token = await generateAndSaveToken(ctx.prisma, `verify-email:${email}`, 24 * 60 * 60 * 1000)
 
       const appUrl = getAppUrl()
       const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
+
+      console.log("==================================================")
+      console.log(`🔑 DEV VERIFICATION LINK FOR [${email}]:`)
+      console.log(verifyLink)
+      console.log("==================================================")
 
       const html = renderEmailVerificationTemplate({
         userName: user.name || "User",
@@ -350,6 +380,12 @@ export const authRouter = router({
       })
 
       if (!res.success) {
+        if (res.error?.includes("only send testing emails") || res.error?.includes("resend.com/domains")) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Resend Sandbox Mode restricts email sending to the registered account owner (flyingmyheart1997@gmail.com). For testing, the verification link has been printed in your server terminal console!",
+          })
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to send email: ${res.error}`,

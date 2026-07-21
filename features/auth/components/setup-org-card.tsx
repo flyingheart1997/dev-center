@@ -14,12 +14,12 @@ export function SetupOrgCard() {
 
   return (
     <Card className="w-full border-border bg-card relative shadow-md">
-      <CardHeader className="text-center space-y-1">
+      <CardHeader className="text-center space-y-1 pt-4">
         <CardTitle className="text-3xl font-semibold tracking-tight text-foreground">
-          Set up Your Organization
+          Set Up Your Organization
         </CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
-          Configure your company workspace and primary headquarters location.
+          Create your company workspace, configure your company details, and start hiring in minutes.
         </CardDescription>
       </CardHeader>
 
@@ -181,7 +181,10 @@ export function SetupOrgCard() {
 
       <CardFooter className="flex-col gap-2 border-t border-border pt-4 text-center">
         <p className="text-xs text-muted-foreground">
-          You can add more branches, departments, and invite team members from your dashboard settings.
+          Your workspace is just getting started. You can always add branches, departments, and team members later.
+        </p>
+        <p className="text-xs text-center text-muted-foreground">
+          © Dev-Center · <a href="/privacy" className="hover:underline">Privacy</a> · <a href="/terms" className="hover:underline">Terms</a>
         </p>
       </CardFooter>
     </Card>
