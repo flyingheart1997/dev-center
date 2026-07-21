@@ -1,5 +1,5 @@
 import { DefaultSession } from "next-auth"
-import { EmployeeRole, EmployeeStatus } from "@prisma/client"
+import { EmployeeRole, EmployeeStatus } from "@/types/enums"
 
 declare module "next-auth" {
   interface Session {
@@ -11,8 +11,9 @@ declare module "next-auth" {
       organizationId?: string | null
       employeeId?: string | null
       candidateId?: string | null
-      role?: EmployeeRole | null
-      employeeStatus?: EmployeeStatus | null
+      role?: EmployeeRole | string | null
+      employeeStatus?: EmployeeStatus | string | null
+      emailVerified?: Date | string | null
     } & DefaultSession["user"]
   }
 
@@ -24,8 +25,9 @@ declare module "next-auth" {
     organizationId?: string | null
     employeeId?: string | null
     candidateId?: string | null
-    role?: EmployeeRole | null
-    employeeStatus?: EmployeeStatus | null
+    role?: EmployeeRole | string | null
+    employeeStatus?: EmployeeStatus | string | null
+    emailVerified?: Date | string | null
   }
 }
 
@@ -36,7 +38,8 @@ declare module "next-auth/jwt" {
     organizationId?: string | null
     employeeId?: string | null
     candidateId?: string | null
-    role?: EmployeeRole | null
-    employeeStatus?: EmployeeStatus | null
+    role?: EmployeeRole | string | null
+    employeeStatus?: EmployeeStatus | string | null
+    emailVerified?: Date | string | null
   }
 }

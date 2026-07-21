@@ -1,6 +1,6 @@
-import React, { Suspense } from "react"
-import { OnboardingCard } from "@/features/auth/components/onboarding-card"
 import { Loader } from "@/components/ui/loader"
+import { OnboardingCard } from "@/features/auth/components/onboarding-card"
+import { Suspense } from "react"
 
 export default function OnboardingPage() {
   return (

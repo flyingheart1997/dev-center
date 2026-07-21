@@ -42,6 +42,7 @@ export function useResetPasswordForm() {
       setMessage({ type: "success", text: res.message })
       setTimeout(() => {
         router.push("/login")
+        router.refresh()
       }, 2000)
     } catch (err: any) {
       setMessage({ type: "error", text: err.message || "Failed to reset password." })

@@ -9,6 +9,52 @@ import { prisma } from "@/lib/prisma"
 
 const oauthProviders: NextAuthOptions["providers"] = []
 
+const MAX_FAILED_ATTEMPTS = 4
+const LOCKOUT_DURATION_MS = 60 * 60 * 1000 // 1 hour
+
+async function checkAndIncrementFailedLogins(email: string) {
+  const key = `failed-login:${email.toLowerCase()}`
+  const now = new Date()
+
+  const existing = await prisma.rateLimit.findUnique({ where: { key } })
+
+  if (existing) {
+    if (existing.expiresAt < now) {
+      await prisma.rateLimit.update({
+        where: { key },
+        data: { points: 1, expiresAt: new Date(now.getTime() + LOCKOUT_DURATION_MS) },
+      })
+      return
+    }
+
+    if (existing.points >= MAX_FAILED_ATTEMPTS) {
+      throw new Error("Too many failed attempts. Your account has been temporarily locked for 1 hour.")
+    }
+
+    await prisma.rateLimit.update({
+      where: { key },
+      data: { points: { increment: 1 } },
+    })
+  } else {
+    await prisma.rateLimit.create({
+      data: {
+        key,
+        points: 1,
+        expiresAt: new Date(now.getTime() + LOCKOUT_DURATION_MS),
+      },
+    })
+  }
+}
+
+async function clearFailedLogins(email: string) {
+  const key = `failed-login:${email.toLowerCase()}`
+  try {
+    await prisma.rateLimit.delete({ where: { key } })
+  } catch (e) {
+    // Ignore if not found
+  }
+}
+
 if (process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()) {
   oauthProviders.push(
     GoogleProvider({
@@ -62,8 +108,13 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Email and password are required")
         }
 
+        const email = credentials.email.toLowerCase()
+
+        // Check rate limit first
+        await checkAndIncrementFailedLogins(email)
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
+          where: { email },
           include: {
             employees: {
               take: 1,
@@ -77,7 +128,7 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user) {
-          throw new Error("No user found with this email")
+          throw new Error("This email is not registered. Please create an account first.")
         }
 
         const account = await prisma.account.findFirst({
@@ -94,6 +145,8 @@ export const authOptions: NextAuthOptions = {
         if (!isValidPassword) {
           throw new Error("Invalid password")
         }
+
+        await clearFailedLogins(email)
 
         const activeEmployee = user.employees[0]
         const activeCandidate = user.candidates[0]
@@ -126,6 +179,9 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.toLowerCase()
         const otpCode = credentials.otp.trim()
 
+        // Check rate limit first
+        await checkAndIncrementFailedLogins(email)
+
         const verificationToken = await prisma.verificationToken.findFirst({
           where: {
             identifier: `login-otp:${email}`,
@@ -144,6 +200,8 @@ export const authOptions: NextAuthOptions = {
 
         await prisma.verificationToken.delete({ where: { id: verificationToken.id } })
 
+        await clearFailedLogins(email)
+
         const user = await prisma.user.findUnique({
           where: { email },
           include: {
@@ -159,7 +217,7 @@ export const authOptions: NextAuthOptions = {
         })
 
         if (!user) {
-          throw new Error("No user found with this email")
+          throw new Error("This email is not registered. Please create an account first.")
         }
 
         const activeEmployee = user.employees[0]
@@ -179,36 +237,87 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+  events: {
+    async createUser({ user }) {
+      if (user.id) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() },
+        }).catch(() => { })
+      }
+    },
+    async linkAccount({ user }) {
+      if (user.id) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerified: new Date() },
+        }).catch(() => { })
+      }
+    },
+  },
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id
-        token.email = user.email!
-        token.organizationId = user.organizationId
-        token.employeeId = user.employeeId
-        token.candidateId = user.candidateId
-        token.role = user.role
-        token.employeeStatus = user.employeeStatus
+    async signIn({ user, account }) {
+      if (account?.provider && account.provider !== "credentials" && account.provider !== "credentials-password" && account.provider !== "credentials-otp") {
+        if (!user.email) return false
+
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email },
+        })
+
+        if (existingUser && !existingUser.emailVerified) {
+          await prisma.user.update({
+            where: { email: user.email },
+            data: { emailVerified: new Date() },
+          })
+        }
+      }
+      return true
+    },
+    async jwt({ token, user, account, trigger, session }) {
+      if (user || trigger === "update") {
+        if (user) {
+          token.id = user.id
+          token.email = user.email!
+          token.organizationId = (user as any).organizationId
+          token.employeeId = (user as any).employeeId
+          token.candidateId = (user as any).candidateId
+          token.role = (user as any).role
+          token.employeeStatus = (user as any).employeeStatus
+        }
+
+        if (trigger === "update" && session) {
+          if (session.organizationId !== undefined) token.organizationId = session.organizationId
+          if (session.employeeId !== undefined) token.employeeId = session.employeeId
+          if (session.candidateId !== undefined) token.candidateId = session.candidateId
+          if (session.role !== undefined) token.role = session.role
+          if (session.employeeStatus !== undefined) token.employeeStatus = session.employeeStatus
+        }
       }
 
-      if (trigger === "update" && session) {
-        if (session.organizationId !== undefined) token.organizationId = session.organizationId
-        if (session.employeeId !== undefined) token.employeeId = session.employeeId
-        if (session.candidateId !== undefined) token.candidateId = session.candidateId
-        if (session.role !== undefined) token.role = session.role
-        if (session.employeeStatus !== undefined) token.employeeStatus = session.employeeStatus
-      }
-
-      if (token.id && (!token.employeeId || !token.candidateId)) {
+      if (token.id || token.sub) {
+        const userId = (token.id || token.sub) as string
         const dbUser = await prisma.user.findUnique({
-          where: { id: token.id },
+          where: { id: userId },
           include: {
+            accounts: true,
             employees: { take: 1, orderBy: { createdAt: "desc" } },
             candidates: { take: 1, orderBy: { createdAt: "desc" } },
           },
         })
 
         if (dbUser) {
+          token.id = dbUser.id
+          token.email = dbUser.email!
+          const isOAuthUser = dbUser.accounts.some((a) => a.provider !== "credentials" && a.provider !== "credentials-password" && a.provider !== "credentials-otp")
+          let verifiedDate = dbUser.emailVerified
+          if ((isOAuthUser || (account && account.provider !== "credentials-password" && account.provider !== "credentials-otp")) && !verifiedDate) {
+            verifiedDate = new Date()
+            await prisma.user.update({
+              where: { id: dbUser.id },
+              data: { emailVerified: verifiedDate },
+            }).catch(() => { })
+          }
+
           const emp = dbUser.employees[0]
           const cand = dbUser.candidates[0]
           token.organizationId = emp?.organizationId || null
@@ -216,6 +325,10 @@ export const authOptions: NextAuthOptions = {
           token.candidateId = cand?.id || null
           token.role = emp?.role || null
           token.employeeStatus = emp?.status || null
+          token.emailVerified = verifiedDate ? verifiedDate.toISOString() : null
+        } else {
+          token.id = null as any
+          token.email = null as any
         }
       }
 
@@ -230,6 +343,7 @@ export const authOptions: NextAuthOptions = {
         session.user.candidateId = (token.candidateId as any) || null
         session.user.role = (token.role as any) || null
         session.user.employeeStatus = (token.employeeStatus as any) || null
+        session.user.emailVerified = (token.emailVerified as any) || null
       }
       return session
     },

@@ -1,6 +1,6 @@
 "use client";
 import { cn } from "@/lib/utils";
-import React, { useState, createContext, useContext } from "react";
+import React, { useState, createContext, useContext, Fragment } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Menu as IconMenu2, X as IconX } from "lucide-react";
 import { Tooltip } from "./tooltip";
@@ -72,10 +72,10 @@ export const Sidebar = ({
 
 export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => {
   return (
-    <>
+    <Fragment>
       <DesktopSidebar {...props} />
       <MobileSidebar {...(props as React.ComponentProps<"div">)} />
-    </>
+    </Fragment>
   );
 };
 
@@ -86,7 +86,7 @@ export const DesktopSidebar = ({
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate } = useSidebar();
   return (
-    <>
+    <Fragment>
       <motion.div
         className={cn(
           "h-full px-2.5 py-4 hidden md:flex md:flex-col bg-neutral-100 dark:bg-neutral-800 w-75 shrink-0",
@@ -101,7 +101,7 @@ export const DesktopSidebar = ({
       >
         {children}
       </motion.div>
-    </>
+    </Fragment>
   );
 };
 
@@ -112,7 +112,7 @@ export const MobileSidebar = ({
 }: React.ComponentProps<"div">) => {
   const { open, setOpen } = useSidebar();
   return (
-    <>
+    <Fragment>
       <div
         className={cn(
           "h-10 px-2 py-4 flex flex-row md:hidden items-center justify-between bg-neutral-100 dark:bg-neutral-800 w-full"
@@ -151,7 +151,7 @@ export const MobileSidebar = ({
           )}
         </AnimatePresence>
       </div>
-    </>
+    </Fragment>
   );
 };
 

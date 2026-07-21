@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { EmployeeStatus } from "@/types/enums"
 import { getToken } from "next-auth/jwt"
 
 // NextAuth cookie keys (handles HTTP and HTTPS secure cookie names)
@@ -22,12 +21,21 @@ function getSafeRedirectUrl(targetPath: string, request: NextRequest): URL {
 }
 
 function isPublicRoute(pathname: string) {
-  const publicRoutes = ["/login", "/register", "/forgot-password", "/privacy", "/terms"]
+  const publicRoutes = [
+    "/login",
+    "/register",
+    "/verify-email",
+    "/forgot-password",
+    "/reset-password",
+    "/privacy",
+    "/terms",
+  ]
   const isStaticAsset = /\.(png|jpg|jpeg|gif|webp|svg|ico|css|js)$/i.test(pathname)
 
   return (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/trpc") ||
     pathname.startsWith("/public") ||
     isStaticAsset ||
     publicRoutes.some((route) => pathname === route || pathname.startsWith(route + "/"))
@@ -35,9 +43,6 @@ function isPublicRoute(pathname: string) {
 }
 
 function resolveUserWorkspaceRedirect(token: any, request: NextRequest): NextResponse {
-  if (token?.employeeStatus === EmployeeStatus.PENDING_APPROVAL) {
-    return NextResponse.redirect(getSafeRedirectUrl("/pending-approval", request))
-  }
   if (token?.organizationId || token?.employeeId) {
     return NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
   }
@@ -50,8 +55,13 @@ function resolveUserWorkspaceRedirect(token: any, request: NextRequest): NextRes
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
-  // 1. PRE-FLIGHT BYPASS (Allow internal Next.js assets & NextAuth endpoints to pass untouched)
-  if (pathname.startsWith("/_next") || pathname.startsWith("/public") || pathname.startsWith("/api/auth")) {
+  // 1. PRE-FLIGHT BYPASS (Allow internal Next.js assets & API endpoints to pass untouched)
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/public") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/trpc")
+  ) {
     return NextResponse.next()
   }
 
@@ -94,7 +104,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(loginUrl)
   }
 
-  // 4. AUTHENTICATED USER ROUTING
+  // 4. EMAIL VERIFICATION GATE
+  // If user is logged in but email is NOT verified, force redirect to /verify-email
+  if (isAuthenticated && !token?.emailVerified && pathname !== "/verify-email") {
+    if (!isAppRouterDataRequest(request)) {
+      const verifyUrl = getSafeRedirectUrl("/verify-email", request)
+      if (token?.email) verifyUrl.searchParams.set("email", token.email)
+      return NextResponse.redirect(verifyUrl)
+    }
+  }
+
+  // 5. AUTHENTICATED USER ROUTING
   const isGuestAuthRoute = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password"
 
   // Logged-in user visiting guest auth routes (/login, /register, /forgot-password) -> Redirect to workspace
@@ -102,16 +122,51 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return resolveUserWorkspaceRedirect(token, request)
   }
 
-  // Logged-in user visiting /onboarding after already being onboarded -> Redirect to workspace
-  if (isAuthenticated && pathname.startsWith("/onboarding") && !isAppRouterDataRequest(request)) {
-    if (token?.organizationId || token?.employeeId || token?.candidateId || token?.employeeStatus === EmployeeStatus.PENDING_APPROVAL) {
+  // Prevent verified users from accessing /verify-email
+  if (isAuthenticated && token?.emailVerified && pathname === "/verify-email") {
+    if (!isAppRouterDataRequest(request)) {
       return resolveUserWorkspaceRedirect(token, request)
     }
   }
 
-  // Logged-in employee with PENDING_APPROVAL accessing /dashboard/* -> Redirect to /pending-approval
-  if (isAuthenticated && pathname.startsWith("/dashboard") && token?.employeeStatus === EmployeeStatus.PENDING_APPROVAL) {
-    return NextResponse.redirect(getSafeRedirectUrl("/pending-approval", request))
+  // Prevent onboarded users from accessing /onboarding
+  if (isAuthenticated && pathname === "/onboarding" && (token?.candidateId || token?.organizationId || token?.employeeId)) {
+    if (!isAppRouterDataRequest(request)) {
+      return resolveUserWorkspaceRedirect(token, request)
+    }
+  }
+
+  // Cross-Workspace Protection
+  if (isAuthenticated) {
+    if (pathname.startsWith("/dashboard") || pathname.startsWith("/organization")) {
+      if (!token?.organizationId && !token?.employeeId) {
+        if (!isAppRouterDataRequest(request)) {
+           return token?.candidateId 
+             ? NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
+             : NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
+        }
+      }
+    }
+
+    if (pathname.startsWith("/candidate")) {
+      if (!token?.candidateId) {
+        if (!isAppRouterDataRequest(request)) {
+           return (token?.organizationId || token?.employeeId)
+             ? NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
+             : NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
+        }
+      }
+    }
+  }
+
+  // Logged-in user visiting /setup-org when Org is ALREADY set up OR is a Candidate
+  if (isAuthenticated && pathname === "/setup-org") {
+    if (token?.organizationId || token?.employeeId) {
+      if (!isAppRouterDataRequest(request)) return NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
+    }
+    if (token?.candidateId) {
+      if (!isAppRouterDataRequest(request)) return NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
+    }
   }
 
   return NextResponse.next()

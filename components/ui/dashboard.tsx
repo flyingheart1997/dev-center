@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { GooeyInput } from "./gooey-input";
 import Link from "next/link";
-import { BellIcon, Settings } from "lucide-react";
+import { BellIcon, LogOut, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import {
     Sidebar,
@@ -21,6 +21,8 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Tooltip } from "./tooltip";
+import { signOut } from "next-auth/react";
+import { Button } from "./button";
 
 export function Dashboard({ children, links }: { children: React.ReactNode, links: Array<{ label: string; href: string; icon: React.ReactNode }> }) {
     const [open, setOpen] = useState(false);
@@ -54,6 +56,9 @@ export function Dashboard({ children, links }: { children: React.ReactNode, link
                                 ),
                             }}
                         />
+                        <Button size='icon' variant='ghost' onClick={() => signOut()}>
+                            <LogOut />
+                        </Button>
                     </div>
                 </SidebarBody>
             </Sidebar>

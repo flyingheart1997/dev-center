@@ -106,13 +106,13 @@ function MessageScrollerButton({
       {...props}
     >
       {children ?? (
-        <>
+        <React.Fragment>
           <ArrowDownIcon
           />
           <span className="sr-only">
             {direction === "end" ? "Scroll to end" : "Scroll to start"}
           </span>
-        </>
+        </React.Fragment>
       )}
     </MessageScrollerPrimitive.Button>
   )

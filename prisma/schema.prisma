@@ -1,10 +1,12 @@
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [citext, pgcrypto, pg_stat_statements, supabase_vault, uuid_ossp(map: "uuid-ossp")]
 }
 
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  provider        = "prisma-client"
+  output          = "./generated"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 enum EmployeeRole {
@@ -189,6 +191,10 @@ model Organization {
   id                String               @id @default(uuid())
   name              String
   domain            String?              @unique
+  websiteUrl        String?
+  linkedinUrl       String?
+  logoUrl           String?
+  industry          String?
   dataRetentionDays Int?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
@@ -374,17 +380,10 @@ model JobRoundInterviewer {
 
 model Candidate {
   id                 String                @id @default(uuid())
-  userId             String?
-  name               String
-  email              String                @unique
-  phone              String?
-  linkedinUrl        String?
-  githubUrl          String?
-  portfolioUrl       String?
+  userId             String?               @unique
   experienceYears    Int?
   currentCompany     String?
   currentDesignation String?
-  location           String?
   countryPermit      Boolean?
   criminalRecord     Boolean?
   isExistingEmployee Boolean?
@@ -402,9 +401,8 @@ model Candidate {
   practiceSessions   PracticeSession[]
   resumeReviews      ResumeReview[]
   savedJobs          SavedJob[]
-
-  @@index([email])
 }
+
 
 model Application {
   id                      String               @id @default(uuid())
@@ -683,9 +681,15 @@ model EmployeeInvitation {
 model User {
   id                    String                 @id @default(cuid())
   name                  String?
-  email                 String?                @unique
+  email                 String?                @unique @db.Citext
   emailVerified         DateTime?
   image                 String?
+  phone                 String?
+  linkedinUrl           String?
+  githubUrl             String?
+  portfolioUrl          String?
+  resumeUrl             String?
+  location              String?
   accounts              Account[]
   sessions              Session[]
   employees             Employee[] // A user can have one or more Employee profiles
@@ -991,4 +995,13 @@ model SavedJob {
   @@unique([candidateId, jobId])
   @@index([candidateId])
   @@index([jobId])
+}
+
+model RateLimit {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  points    Int      @default(0)
+  expiresAt DateTime
+
+  @@index([key])
 }

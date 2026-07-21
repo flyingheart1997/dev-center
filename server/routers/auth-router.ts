@@ -1,29 +1,42 @@
 import { z } from "zod"
 import bcrypt from "bcryptjs"
-import { crypto } from "next/dist/compiled/@edge-runtime/primitives"
-import { EmployeeRole, EmployeeStatus } from "@/types/enums"
-import { router, publicProcedure } from "../trpc"
+import { router, publicProcedure, protectedProcedure } from "../trpc"
 import { TRPCError } from "@trpc/server"
+import { EmployeeRole, EmployeeStatus } from "@/types/enums"
 import { getAppUrl } from "@/lib/utils/url-utils"
 import { sendTransactionalEmail } from "@/lib/resend"
 import { renderEmailVerificationTemplate } from "@/components/templates/email-templates/email-verification-template"
 import { renderLoginOtpTemplate } from "@/components/templates/email-templates/login-otp-template"
 import { renderPasswordResetTemplate } from "@/components/templates/email-templates/password-reset-template"
 import {
-  candidateRegisterSchema,
-  employeeRegisterSchema,
+  registerUserSchema,
   forgotPasswordSchema,
+  setupOrgSchema,
 } from "@/features/auth/schema/auth-schemas"
+import { checkRateLimit } from "@/features/auth/utils/rate-limit"
+import { generateAndSaveToken } from "@/features/auth/utils/token-utils"
+import { isPublicEmailDomain } from "@/features/auth/utils/domain-utils"
 
 export const authRouter = router({
   getSession: publicProcedure.query(async ({ ctx }) => {
     return ctx.session
   }),
 
-  registerCandidate: publicProcedure
-    .input(candidateRegisterSchema)
+  checkEmailExists: publicProcedure
+    .input(z.object({ email: z.string().email("Invalid email address") }))
+    .query(async ({ ctx, input }) => {
+      const email = input.email.trim().toLowerCase()
+      await checkRateLimit(ctx.prisma, `check-email:${email}`, 5, 15 * 60 * 1000)
+      const existingUser = await ctx.prisma.user.findUnique({ where: { email } })
+      return { exists: !!existingUser }
+    }),
+
+  registerUser: publicProcedure
+    .input(registerUserSchema)
     .mutation(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
+
+      await checkRateLimit(ctx.prisma, `register:${email}`, 3, 15 * 60 * 1000)
 
       const existingUser = await ctx.prisma.user.findUnique({
         where: { email },
@@ -42,6 +55,7 @@ export const authRouter = router({
         data: {
           name: input.name,
           email,
+          phone: input.phone || null,
           accounts: {
             create: {
               type: "credentials",
@@ -49,28 +63,19 @@ export const authRouter = router({
               providerAccountId: passwordHash,
             },
           },
-          candidates: {
-            create: {
-              name: input.name,
-              email,
-              phone: input.phone,
-            },
-          },
         },
       })
 
       // Generate verification token
-      const token = crypto.randomUUID()
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      const identifier = `verify-email:${email}`
-
-      await ctx.prisma.verificationToken.deleteMany({ where: { identifier } })
-      await ctx.prisma.verificationToken.create({
-        data: { identifier, token, expires: expiresAt },
-      })
+      const token = await generateAndSaveToken(ctx.prisma, `verify-email:${email}`, 24 * 60 * 60 * 1000)
 
       const appUrl = getAppUrl()
       const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
+
+      console.log("==================================================")
+      console.log(`🔑 DEV VERIFICATION LINK FOR NEW USER [${email}]:`)
+      console.log(verifyLink)
+      console.log("==================================================")
 
       const html = renderEmailVerificationTemplate({ userName: input.name, verifyLink })
       await sendTransactionalEmail({
@@ -87,118 +92,156 @@ export const authRouter = router({
       }
     }),
 
-  registerEmployee: publicProcedure
-    .input(employeeRegisterSchema)
-    .mutation(async ({ ctx, input }) => {
-      const email = input.email.trim().toLowerCase()
+  onboardCandidate: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const userId = ctx.session.user.id
 
-      const existingUser = await ctx.prisma.user.findUnique({
-        where: { email },
+      const currentEmployee = await ctx.prisma.employee.findFirst({
+        where: { userId },
       })
 
-      if (existingUser) {
+      if (currentEmployee) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "An account with this email address already exists.",
+          message: "You are already registered as an employee of an organization.",
         })
       }
 
-      const passwordHash = await bcrypt.hash(input.password, 12)
+      const existingCandidate = await ctx.prisma.candidate.findUnique({
+        where: { userId },
+      })
 
-      let targetOrgId = input.organizationId
-      let inviteScope: {
-        role?: EmployeeRole
-        status?: EmployeeStatus
-        businessUnitId?: string | null
-        branchId?: string | null
-        departmentId?: string | null
-      } = {}
-
-      if (input.invitationToken) {
-        const invitation = await ctx.prisma.employeeInvitation.findUnique({
-          where: { token: input.invitationToken },
+      if (existingCandidate) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "You are already registered as a candidate.",
         })
-
-        if (invitation && invitation.expiresAt > new Date()) {
-          targetOrgId = invitation.organizationId
-          inviteScope = {
-            role: invitation.role as EmployeeRole,
-            businessUnitId: invitation.businessUnitId,
-            branchId: invitation.branchId,
-            departmentId: invitation.departmentId,
-            status: EmployeeStatus.ACTIVE,
-          }
-        }
       }
 
-      if (!targetOrgId && email.includes("@")) {
-        const emailDomain = email.split("@")[1]
-        const matchingOrg = await ctx.prisma.organization.findUnique({
-          where: { domain: emailDomain },
-        })
-        if (matchingOrg) {
-          targetOrgId = matchingOrg.id
-        }
-      }
-
-      if (!targetOrgId) {
-        const companyName = input.name + "'s Organization"
-        const newOrg = await ctx.prisma.organization.create({
-          data: { name: companyName },
-        })
-        targetOrgId = newOrg.id
-        inviteScope = { role: EmployeeRole.OWNER, status: EmployeeStatus.ACTIVE }
-      }
-
-      const user = await ctx.prisma.user.create({
+      await ctx.prisma.candidate.create({
         data: {
-          name: input.name,
-          email,
-          accounts: {
-            create: {
-              type: "credentials",
-              provider: "credentials",
-              providerAccountId: passwordHash,
-            },
-          },
-          employees: {
-            create: {
-              organizationId: targetOrgId,
-              role: inviteScope.role ?? EmployeeRole.INTERVIEWER,
-              status: inviteScope.status ?? EmployeeStatus.PENDING_APPROVAL,
-              businessUnitId: inviteScope.businessUnitId ?? null,
-              branchId: inviteScope.branchId ?? null,
-              departmentId: inviteScope.departmentId ?? null,
-            },
-          },
+          userId,
         },
-      })
-
-      // Send verification email
-      const token = crypto.randomUUID()
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      const identifier = `verify-email:${email}`
-
-      await ctx.prisma.verificationToken.deleteMany({ where: { identifier } })
-      await ctx.prisma.verificationToken.create({
-        data: { identifier, token, expires: expiresAt },
-      })
-
-      const appUrl = getAppUrl()
-      const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
-
-      const html = renderEmailVerificationTemplate({ userName: input.name, verifyLink })
-      await sendTransactionalEmail({
-        to: email,
-        subject: "Verify your Dev-Center Account Email",
-        html,
-        idempotencyKey: `verify-email/${user.id}-${Date.now()}`,
       })
 
       return {
         success: true,
-        message: "Employee account created! Please check your email to verify your account.",
-        userId: user.id,
+        message: "Candidate profile created successfully. Redirecting to candidate dashboard...",
+      }
+    }),
+
+  createOrganization: protectedProcedure
+    .input(setupOrgSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+
+      const user = await ctx.prisma.user.findUnique({ where: { id: userId } })
+      if (!user?.email || isPublicEmailDomain(user.email)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Organizations cannot be created using personal email accounts (e.g. gmail.com, outlook.com). Please sign up with your company work email.",
+        })
+      }
+
+      const domain = input.domain?.trim().toLowerCase() || null
+
+      if (domain) {
+        if (isPublicEmailDomain(`test@${domain}`)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Public email domains cannot be registered as an organization domain.",
+          })
+        }
+
+        const existingDomainOrg = await ctx.prisma.organization.findUnique({ where: { domain } })
+        if (existingDomainOrg) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `An organization with domain '${domain}' is already registered.`,
+          })
+        }
+      }
+
+      const currentEmployee = await ctx.prisma.employee.findFirst({
+        where: { userId },
+      })
+
+      if (currentEmployee) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "You are already registered as an employee of an organization.",
+        })
+      }
+
+      const currentCandidate = await ctx.prisma.candidate.findUnique({
+        where: { userId },
+      })
+
+      if (currentCandidate) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "You are already registered as a candidate.",
+        })
+      }
+
+      const { newOrg, employee } = await ctx.prisma.$transaction(async (tx) => {
+        const org = await tx.organization.create({
+          data: {
+            name: input.companyName.trim(),
+            domain,
+            websiteUrl: input.websiteUrl || null,
+            linkedinUrl: input.linkedinUrl || null,
+            industry: input.industry || null,
+          },
+        })
+
+        const bu = await tx.businessUnit.create({
+          data: {
+            organizationId: org.id,
+            name: "Main Operations",
+          },
+        })
+
+        const branch = await tx.branch.create({
+          data: {
+            organizationId: org.id,
+            businessUnitId: bu.id,
+            name: "Headquarters",
+            isHeadOffice: true,
+            city: input.city || null,
+            country: input.country || null,
+            timezone: input.timezone,
+          },
+        })
+
+        const dept = await tx.department.create({
+          data: {
+            organizationId: org.id,
+            branchId: branch.id,
+            name: "General Management",
+          },
+        })
+
+        const emp = await tx.employee.create({
+          data: {
+            organizationId: org.id,
+            businessUnitId: bu.id,
+            branchId: branch.id,
+            departmentId: dept.id,
+            userId,
+            role: EmployeeRole.OWNER,
+            status: EmployeeStatus.ACTIVE,
+          },
+        })
+
+        return { newOrg: org, employee: emp }
+      })
+
+      return {
+        success: true,
+        organizationId: newOrg.id,
+        employeeId: employee.id,
+        message: "Organization & Headquarters created successfully!",
       }
     }),
 
@@ -207,11 +250,13 @@ export const authRouter = router({
     .mutation(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
 
+      await checkRateLimit(ctx.prisma, `otp:${email}`, 3, 5 * 60 * 1000)
+
       const user = await ctx.prisma.user.findUnique({ where: { email } })
       if (!user) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "No account found with this email address.",
+          message: "This email is not registered. Please create an account first.",
         })
       }
 
@@ -219,10 +264,16 @@ export const authRouter = router({
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
       const identifier = `login-otp:${email}`
 
-      await ctx.prisma.verificationToken.deleteMany({ where: { identifier } })
-      await ctx.prisma.verificationToken.create({
-        data: { identifier, token: otpCode, expires: expiresAt },
-      })
+      await ctx.prisma.$transaction([
+        ctx.prisma.verificationToken.deleteMany({ where: { identifier } }),
+        ctx.prisma.verificationToken.create({
+          data: { identifier, token: otpCode, expires: expiresAt },
+        }),
+      ])
+
+      console.log("==================================================")
+      console.log(`🔑 DEV LOGIN OTP CODE FOR [${email}]: ${otpCode}`)
+      console.log("==================================================")
 
       const html = renderLoginOtpTemplate({ otpCode })
       const res = await sendTransactionalEmail({
@@ -233,6 +284,12 @@ export const authRouter = router({
       })
 
       if (!res.success) {
+        if (res.error?.includes("only send testing emails") || res.error?.includes("resend.com/domains")) {
+          return {
+            success: true,
+            message: `OTP Code generated! (Resend Sandbox Mode: Your 6-digit OTP code [${otpCode}] is printed in your server terminal console).`,
+          }
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to send email: ${res.error}`,
@@ -272,34 +329,86 @@ export const authRouter = router({
         })
       }
 
-      await ctx.prisma.user.update({
-        where: { email },
-        data: { emailVerified: new Date() },
-      })
-
-      await ctx.prisma.verificationToken.delete({ where: { id: record.id } })
+      await ctx.prisma.$transaction([
+        ctx.prisma.user.update({
+          where: { email },
+          data: { emailVerified: new Date() },
+        }),
+        ctx.prisma.verificationToken.delete({ where: { id: record.id } }),
+      ])
 
       return { success: true, message: "Email verified successfully! You can now log in." }
+    }),
+
+  resendVerificationEmail: publicProcedure
+    .input(z.object({ email: z.string().email() }))
+    .mutation(async ({ ctx, input }) => {
+      const email = input.email.trim().toLowerCase()
+
+      await checkRateLimit(ctx.prisma, `resend-verify:${email}`, 3, 15 * 60 * 1000)
+
+      const user = await ctx.prisma.user.findUnique({ where: { email } })
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found. Your session may be invalid. Please sign out and try logging in again.",
+        })
+      }
+
+      // Generate verification token
+      const token = await generateAndSaveToken(ctx.prisma, `verify-email:${email}`, 24 * 60 * 60 * 1000)
+
+      const appUrl = getAppUrl()
+      const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
+
+      console.log("==================================================")
+      console.log(`🔑 DEV VERIFICATION LINK FOR [${email}]:`)
+      console.log(verifyLink)
+      console.log("==================================================")
+
+      const html = renderEmailVerificationTemplate({
+        userName: user.name || "User",
+        verifyLink,
+      })
+
+      const res = await sendTransactionalEmail({
+        to: email,
+        subject: "Verify your Dev-Center Account Email",
+        html,
+        idempotencyKey: `resend-verify-email/${user.id}-${Date.now()}`,
+      })
+
+      if (!res.success) {
+        if (res.error?.includes("only send testing emails") || res.error?.includes("resend.com/domains")) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Resend Sandbox Mode restricts email sending to the registered account owner (flyingmyheart1997@gmail.com). For testing, the verification link has been printed in your server terminal console!",
+          })
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to send email: ${res.error}`,
+        })
+      }
+
+      return { success: true, message: "A new verification email has been sent. Please check your inbox." }
     }),
 
   requestPasswordReset: publicProcedure
     .input(forgotPasswordSchema)
     .mutation(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
+
+      await checkRateLimit(ctx.prisma, `reset:${email}`, 3, 15 * 60 * 1000)
+
       const user = await ctx.prisma.user.findUnique({ where: { email } })
 
       if (!user) {
         return { success: true, message: "If an account exists with this email, password reset instructions have been sent." }
       }
 
-      const token = crypto.randomUUID()
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
-      const identifier = `reset-password:${email}`
-
-      await ctx.prisma.verificationToken.deleteMany({ where: { identifier } })
-      await ctx.prisma.verificationToken.create({
-        data: { identifier, token, expires: expiresAt },
-      })
+      const token = await generateAndSaveToken(ctx.prisma, `reset-password:${email}`, 60 * 60 * 1000, 32)
 
       const appUrl = getAppUrl()
       const resetLink = `${appUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`
@@ -364,23 +473,22 @@ export const authRouter = router({
         where: { userId: user.id, provider: "credentials" },
       })
 
-      if (existingAccount) {
-        await ctx.prisma.account.update({
-          where: { id: existingAccount.id },
-          data: { providerAccountId: passwordHash },
-        })
-      } else {
-        await ctx.prisma.account.create({
-          data: {
-            userId: user.id,
-            type: "credentials",
-            provider: "credentials",
-            providerAccountId: passwordHash,
-          },
-        })
-      }
-
-      await ctx.prisma.verificationToken.delete({ where: { id: record.id } })
+      await ctx.prisma.$transaction([
+        existingAccount
+          ? ctx.prisma.account.update({
+            where: { id: existingAccount.id },
+            data: { providerAccountId: passwordHash },
+          })
+          : ctx.prisma.account.create({
+            data: {
+              userId: user.id,
+              type: "credentials",
+              provider: "credentials",
+              providerAccountId: passwordHash,
+            },
+          }),
+        ctx.prisma.verificationToken.delete({ where: { id: record.id } }),
+      ])
 
       return { success: true, message: "Your password has been reset successfully! You can now log in." }
     }),

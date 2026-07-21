@@ -30,6 +30,13 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     })
   }
 
+  if (!ctx.session.user.emailVerified) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Please verify your email address before continuing.",
+    })
+  }
+
   return next({
     ctx: {
       session: { ...ctx.session, user: ctx.session.user },
