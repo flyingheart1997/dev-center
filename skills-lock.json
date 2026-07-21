@@ -37,6 +37,12 @@
       "skillPath": "skills/resend/SKILL.md",
       "computedHash": "b246db7265df47250a7a55efb02778c2870d18e8030164a23e26a6324e4f4f8b"
     },
+    "shadcn": {
+      "source": "shadcn/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "d81caa0f86aabab65b25e302d454f23a3328760386ed9078345584c0d5c8058e"
+    },
     "supabase": {
       "source": "supabase/agent-skills",
       "sourceType": "github",
