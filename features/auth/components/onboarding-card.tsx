@@ -1,59 +1,24 @@
 "use client"
 
-import React, { Fragment, useState } from "react"
-import { useRouter } from "next/navigation"
-import { Building2, User, ArrowRight, Loader2, Lock, AlertCircle } from "lucide-react"
-import { trpc } from "@/lib/trpc/client"
+import React, { Fragment } from "react"
+import Link from "next/link"
+import { Building2, User, ArrowRight, Loader2, Lock } from "lucide-react"
 import { AlertMessage } from "./alert-message"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { signOut, useSession } from "next-auth/react"
+import { useOnboarding } from "@/features/auth/hooks/use-onboarding"
 import { cn } from "@/lib/utils"
-import { isPublicEmailDomain } from "@/features/auth/utils/domain-utils"
 
 export function OnboardingCard() {
-  const router = useRouter()
-  const { data: session, update } = useSession()
-  const [userType, setUserType] = useState<"candidate" | "employee" | null>(null)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-
-  const onboardCandidateMutation = trpc.auth.onboardCandidate.useMutation()
-
-  const userEmail = session?.user?.email || ""
-  const isPublicDomain = isPublicEmailDomain(userEmail)
-
-  const handleContinue = async () => {
-    if (!userType) return
-
-    setMessage(null)
-
-    if (userType === "candidate") {
-      try {
-        const res = await onboardCandidateMutation.mutateAsync()
-        setMessage({ type: "success", text: res.message })
-
-        // Refresh NextAuth session JWT cookie with new Candidate ID
-        await update()
-
-        setTimeout(() => {
-          router.push("/candidate")
-          router.refresh()
-        }, 2000)
-      } catch (err: any) {
-        setMessage({ type: "error", text: err.message || "Failed to complete onboarding." })
-      }
-    } else {
-      if (isPublicDomain) {
-        setMessage({
-          type: "error",
-          text: "Organization setup requires a corporate/work email. Personal email domains cannot register an organization.",
-        })
-        return
-      }
-      // Employee / Organization
-      router.push("/setup-org")
-    }
-  }
+  const {
+    userType,
+    setUserType,
+    isPublicDomain,
+    message,
+    handleContinue,
+    handleSignOut,
+    loading,
+  } = useOnboarding()
 
   return (
     <Card className="w-full border-border bg-card shadow-md">
@@ -134,10 +99,10 @@ export function OnboardingCard() {
               </p>
             </div>
           </div>
+
           {isPublicDomain && (
             <div className="inline-flex items-center px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/20">
               <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center text-center gap-2">
-                {/* <AlertCircle className="h-3.5 w-3.5 shrink-0 inline" /> */}
                 Please use your company's work email to create an organization. Personal email addresses (such as gmail or yahoo) cannot be used.
               </p>
             </div>
@@ -147,10 +112,10 @@ export function OnboardingCard() {
         <Button
           type="button"
           onClick={handleContinue}
-          disabled={!userType || onboardCandidateMutation.isPending}
+          disabled={!userType || loading}
           className="w-full h-11 text-base mt-2"
         >
-          {onboardCandidateMutation.isPending ? (
+          {loading ? (
             <Fragment>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Processing...
@@ -168,15 +133,17 @@ export function OnboardingCard() {
           Want to use a different account?{" "}
           <Button
             type="button"
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="text-primary font-semibold hover:underline bg-transparent border-none p-0 cursor-pointer inline"
+            variant="link"
+            size="sm"
+            onClick={handleSignOut}
+            className="text-primary font-semibold hover:underline p-0 h-auto inline cursor-pointer"
           >
             Sign out
           </Button>
         </p>
 
         <p className="text-xs text-center text-muted-foreground">
-          © Dev-Center · <a href="/privacy" className="hover:underline">Privacy</a> · <a href="/terms" className="hover:underline">Terms</a>
+          © Dev-Center · <Link href="/privacy" className="hover:underline">Privacy</Link> · <Link href="/terms" className="hover:underline">Terms</Link>
         </p>
       </CardFooter>
     </Card>
