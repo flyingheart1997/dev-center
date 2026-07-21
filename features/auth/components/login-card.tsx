@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Controller } from "react-hook-form"
 import { ArrowLeft } from "lucide-react"
 import { useLoginForm } from "@/features/auth/hooks/use-login-form"
+import { PasswordInput } from "@/components/ui/password-input"
 import { SocialAuthButtons } from "./social-auth-buttons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +30,7 @@ export function LoginCard() {
     handleBackToStep1,
     handlePasswordLogin,
     handleOtpLogin,
+    isCheckingEmail,
   } = useLoginForm()
 
   return (
@@ -109,8 +111,13 @@ export function LoginCard() {
               )}
             </div>
 
-            <Button type="button" onClick={handleContinueToStep2} className="w-full h-11">
-              Continue
+            <Button
+              type="button"
+              onClick={handleContinueToStep2}
+              disabled={isCheckingEmail}
+              className="w-full h-11"
+            >
+              {isCheckingEmail ? "Checking..." : "Continue"}
             </Button>
 
             {/* Reusable Multi-Provider Social Auth Buttons */}
@@ -174,14 +181,7 @@ export function LoginCard() {
                       control={passwordForm.control}
                       render={({ field, fieldState }) => (
                         <div>
-                          <Input
-                            {...field}
-                            id="password"
-                            type="password"
-                            placeholder="••••••••"
-                            className="h-11"
-                            aria-invalid={fieldState.invalid}
-                          />
+                          <PasswordInput className="h-11" placeholder="Enter your password" {...field} aria-invalid={fieldState.invalid} />
                           {fieldState.error && (
                             <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>
                           )}

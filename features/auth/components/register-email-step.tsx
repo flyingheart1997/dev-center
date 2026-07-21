@@ -6,20 +6,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SocialAuthButtons } from "./social-auth-buttons"
-import { CandidateRegisterInput, EmployeeRegisterInput } from "../schema/auth-schemas"
+import { RegisterUserInput } from "../schema/auth-schemas"
+
 
 interface RegisterEmailStepProps {
-  userType: "candidate" | "employee"
-  candidateForm: UseFormReturn<CandidateRegisterInput>
-  employeeForm: UseFormReturn<EmployeeRegisterInput>
+  registerForm: UseFormReturn<RegisterUserInput>
   onNext: () => void
   loading: boolean
 }
 
 export function RegisterEmailStep({
-  userType,
-  candidateForm,
-  employeeForm,
+  registerForm,
   onNext,
   loading,
 }: RegisterEmailStepProps) {
@@ -29,43 +26,23 @@ export function RegisterEmailStep({
         <Label htmlFor="step1-email" className="text-sm font-medium text-foreground">
           Email Address
         </Label>
-        {userType === "candidate" ? (
-          <Controller
-            name="email"
-            control={candidateForm.control}
-            render={({ field, fieldState }) => (
-              <div>
-                <Input
-                  {...field}
-                  id="step1-email"
-                  type="email"
-                  placeholder="hello@app.com"
-                  className="h-11"
-                  aria-invalid={fieldState.invalid}
-                />
-                {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-              </div>
-            )}
-          />
-        ) : (
-          <Controller
-            name="email"
-            control={employeeForm.control}
-            render={({ field, fieldState }) => (
-              <div>
-                <Input
-                  {...field}
-                  id="step1-email"
-                  type="email"
-                  placeholder="you@company.com"
-                  className="h-11"
-                  aria-invalid={fieldState.invalid}
-                />
-                {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-              </div>
-            )}
-          />
-        )}
+        <Controller
+          name="email"
+          control={registerForm.control}
+          render={({ field, fieldState }) => (
+            <div>
+              <Input
+                {...field}
+                id="step1-email"
+                type="email"
+                placeholder="hello@app.com"
+                className="h-11"
+                aria-invalid={fieldState.invalid}
+              />
+              {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
+            </div>
+          )}
+        />
       </div>
 
       <Button type="button" onClick={onNext} disabled={loading} className="w-full h-11">

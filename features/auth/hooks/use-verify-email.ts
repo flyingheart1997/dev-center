@@ -19,6 +19,7 @@ export function useVerifyEmail() {
   )
 
   const verifyMutation = trpc.auth.verifyEmailToken.useMutation()
+  const resendMutation = trpc.auth.resendVerificationEmail.useMutation()
 
   useEffect(() => {
     if (token && email) {
@@ -33,10 +34,21 @@ export function useVerifyEmail() {
     }
   }, [token, email])
 
+  const handleResend = async (targetEmail: string) => {
+    try {
+      const res = await resendMutation.mutateAsync({ email: targetEmail })
+      setStatus({ type: "success", text: res.message })
+    } catch (err: any) {
+      setStatus({ type: "error", text: err.message || "Failed to resend email." })
+    }
+  }
+
   return {
     loading: verifyMutation.isPending,
+    isResending: resendMutation.isPending,
     status,
     email,
     token,
+    handleResend,
   }
 }

@@ -40,14 +40,19 @@ function resolveUserWorkspaceRedirect(token: any, request: NextRequest): NextRes
   if (token?.candidateId) {
     return NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
   }
-  return NextResponse.redirect(getSafeRedirectUrl("/setup-org", request))
+  return NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
-  // 1. PRE-FLIGHT BYPASS (Allow internal Next.js assets & NextAuth endpoints to pass untouched)
-  if (pathname.startsWith("/_next") || pathname.startsWith("/public") || pathname.startsWith("/api/auth")) {
+  // 1. PRE-FLIGHT BYPASS (Allow internal Next.js assets & API endpoints to pass untouched)
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/public") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/trpc")
+  ) {
     return NextResponse.next()
   }
 
@@ -108,17 +113,50 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return resolveUserWorkspaceRedirect(token, request)
   }
 
-  // Logged-in user visiting /dashboard/* when Org setup is incomplete -> Redirect to /setup-org
-  if (isAuthenticated && pathname.startsWith("/dashboard") && !token?.organizationId && !token?.employeeId) {
+  // Prevent verified users from accessing /verify-email
+  if (isAuthenticated && token?.emailVerified && pathname === "/verify-email") {
     if (!isAppRouterDataRequest(request)) {
-      return NextResponse.redirect(getSafeRedirectUrl("/setup-org", request))
+      return resolveUserWorkspaceRedirect(token, request)
     }
   }
 
-  // Logged-in user visiting /setup-org when Org is ALREADY set up -> Redirect to /dashboard
-  if (isAuthenticated && pathname === "/setup-org" && (token?.organizationId || token?.employeeId)) {
+  // Prevent onboarded users from accessing /onboarding
+  if (isAuthenticated && pathname === "/onboarding" && (token?.candidateId || token?.organizationId || token?.employeeId)) {
     if (!isAppRouterDataRequest(request)) {
-      return NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
+      return resolveUserWorkspaceRedirect(token, request)
+    }
+  }
+
+  // Cross-Workspace Protection
+  if (isAuthenticated) {
+    if (pathname.startsWith("/dashboard") || pathname.startsWith("/organization")) {
+      if (!token?.organizationId && !token?.employeeId) {
+        if (!isAppRouterDataRequest(request)) {
+           return token?.candidateId 
+             ? NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
+             : NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
+        }
+      }
+    }
+
+    if (pathname.startsWith("/candidate")) {
+      if (!token?.candidateId) {
+        if (!isAppRouterDataRequest(request)) {
+           return (token?.organizationId || token?.employeeId)
+             ? NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
+             : NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
+        }
+      }
+    }
+  }
+
+  // Logged-in user visiting /setup-org when Org is ALREADY set up OR is a Candidate
+  if (isAuthenticated && pathname === "/setup-org") {
+    if (token?.organizationId || token?.employeeId) {
+      if (!isAppRouterDataRequest(request)) return NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
+    }
+    if (token?.candidateId) {
+      if (!isAppRouterDataRequest(request)) return NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
     }
   }
 

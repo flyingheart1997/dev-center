@@ -39,6 +39,11 @@ export function useLoginForm() {
           type: "error",
           text: "Access denied by social provider.",
         })
+      } else if (errorParam === "OAuthAccountNotRegistered") {
+        setMessage({
+          type: "error",
+          text: "This email is not registered. Please create an account first.",
+        })
       } else {
         setMessage({
           type: "error",
@@ -61,6 +66,8 @@ export function useLoginForm() {
   })
 
   const sendOtpMutation = trpc.auth.sendLoginOtp.useMutation()
+  const trpcUtils = trpc.useUtils()
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
 
   const handleContinueToStep2 = async () => {
     setMessage(null)
@@ -74,6 +81,21 @@ export function useLoginForm() {
       activeForm.setError("email", { message: "Please enter a valid email address" })
       return
     }
+
+    // Check if email is registered
+    setIsCheckingEmail(true)
+    try {
+      const res = await trpcUtils.auth.checkEmailExists.fetch({ email: emailToValidate.trim() })
+      if (!res.exists) {
+        const activeForm = loginMethod === "password" ? passwordForm : otpForm
+        activeForm.setError("email", { message: "This email is not registered. Please create an account first." })
+        setIsCheckingEmail(false)
+        return
+      }
+    } catch (error) {
+      console.error("Failed to check email", error)
+    }
+    setIsCheckingEmail(false)
 
     // Synchronize email across both forms
     passwordForm.setValue("email", emailToValidate.trim())
@@ -98,7 +120,7 @@ export function useLoginForm() {
       })
 
       if (res?.error) {
-        setMessage({ type: "error", text: "Invalid email or password." })
+        setMessage({ type: "error", text: res.error })
       } else {
         setMessage({ type: "success", text: "Logged in successfully! Redirecting..." })
         router.push("/dashboard")
@@ -139,7 +161,7 @@ export function useLoginForm() {
       })
 
       if (res?.error) {
-        setMessage({ type: "error", text: "Invalid or expired OTP code." })
+        setMessage({ type: "error", text: res.error })
       } else {
         setMessage({ type: "success", text: "Logged in successfully! Redirecting..." })
         router.push("/dashboard")
@@ -164,6 +186,7 @@ export function useLoginForm() {
     handlePasswordLogin,
     handleOtpLogin,
     handleSendOtp,
+    isCheckingEmail,
     loading: passwordForm.formState.isSubmitting || sendOtpMutation.isPending || otpForm.formState.isSubmitting,
   }
 }

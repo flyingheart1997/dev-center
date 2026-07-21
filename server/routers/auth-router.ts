@@ -1,18 +1,17 @@
 import { z } from "zod"
 import bcrypt from "bcryptjs"
-import { crypto } from "next/dist/compiled/@edge-runtime/primitives"
-import { EmployeeRole, EmployeeStatus } from "@/types/enums"
-import { router, publicProcedure } from "../trpc"
+import { router, publicProcedure, protectedProcedure } from "../trpc"
 import { TRPCError } from "@trpc/server"
+import { EmployeeRole, EmployeeStatus } from "@/types/enums"
 import { getAppUrl } from "@/lib/utils/url-utils"
 import { sendTransactionalEmail } from "@/lib/resend"
 import { renderEmailVerificationTemplate } from "@/components/templates/email-templates/email-verification-template"
 import { renderLoginOtpTemplate } from "@/components/templates/email-templates/login-otp-template"
 import { renderPasswordResetTemplate } from "@/components/templates/email-templates/password-reset-template"
 import {
-  candidateRegisterSchema,
-  employeeRegisterSchema,
+  registerUserSchema,
   forgotPasswordSchema,
+  setupOrgSchema,
 } from "@/features/auth/schema/auth-schemas"
 import { checkRateLimit } from "@/features/auth/utils/rate-limit"
 import { generateAndSaveToken } from "@/features/auth/utils/token-utils"
@@ -31,8 +30,8 @@ export const authRouter = router({
       return { exists: !!existingUser }
     }),
 
-  registerCandidate: publicProcedure
-    .input(candidateRegisterSchema)
+  registerUser: publicProcedure
+    .input(registerUserSchema)
     .mutation(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
 
@@ -63,9 +62,6 @@ export const authRouter = router({
               providerAccountId: passwordHash,
             },
           },
-          candidates: {
-            create: {},
-          },
         },
       })
 
@@ -90,147 +86,47 @@ export const authRouter = router({
       }
     }),
 
-  registerEmployee: publicProcedure
-    .input(employeeRegisterSchema)
-    .mutation(async ({ ctx, input }) => {
-      const email = input.email.trim().toLowerCase()
+  onboardCandidate: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const userId = ctx.session.user.id
 
-      await checkRateLimit(ctx.prisma, `register:${email}`, 3, 15 * 60 * 1000)
-
-      const existingUser = await ctx.prisma.user.findUnique({
-        where: { email },
+      const currentEmployee = await ctx.prisma.employee.findFirst({
+        where: { userId },
       })
 
-      if (existingUser) {
+      if (currentEmployee) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "An account with this email address already exists.",
+          message: "You are already registered as an employee of an organization.",
         })
       }
 
-      const passwordHash = await bcrypt.hash(input.password, 12)
-
-      let targetOrgId = input.organizationId
-      let inviteScope: {
-        role?: EmployeeRole
-        status?: EmployeeStatus
-        businessUnitId?: string | null
-        branchId?: string | null
-        departmentId?: string | null
-      } = {}
-
-      if (input.invitationToken) {
-        const invitation = await ctx.prisma.employeeInvitation.findUnique({
-          where: { token: input.invitationToken },
-        })
-
-        if (!invitation || invitation.expiresAt < new Date()) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Invalid or expired invitation token.",
-          })
-        }
-
-        if (invitation.email.toLowerCase() !== email) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "This invitation is not valid for this email address.",
-          })
-        }
-
-        targetOrgId = invitation.organizationId
-        inviteScope = {
-          role: invitation.role as EmployeeRole,
-          businessUnitId: invitation.businessUnitId,
-          branchId: invitation.branchId,
-          departmentId: invitation.departmentId,
-          status: EmployeeStatus.ACTIVE,
-        }
-      }
-
-      // Domain auto-join has been intentionally removed. Users must be explicitly invited.
-
-      if (!targetOrgId) {
-        const companyName = input.name + "'s Organization"
-        const newOrg = await ctx.prisma.organization.create({
-          data: { name: companyName },
-        })
-        targetOrgId = newOrg.id
-        inviteScope = { role: EmployeeRole.OWNER, status: EmployeeStatus.ACTIVE }
-      }
-
-      const user = await ctx.prisma.user.create({
-        data: {
-          name: input.name,
-          email,
-          accounts: {
-            create: {
-              type: "credentials",
-              provider: "credentials",
-              providerAccountId: passwordHash,
-            },
-          },
-          employees: {
-            create: {
-              organizationId: targetOrgId,
-              role: inviteScope.role ?? EmployeeRole.OWNER,
-              status: inviteScope.status ?? EmployeeStatus.ACTIVE,
-              businessUnitId: inviteScope.businessUnitId ?? null,
-              branchId: inviteScope.branchId ?? null,
-              departmentId: inviteScope.departmentId ?? null,
-            },
-          },
-        },
+      const existingCandidate = await ctx.prisma.candidate.findUnique({
+        where: { userId },
       })
 
-      // Send verification email
-      const token = await generateAndSaveToken(ctx.prisma, `verify-email:${email}`, 24 * 60 * 60 * 1000)
-
-      if (input.invitationToken) {
-        await ctx.prisma.employeeInvitation.delete({
-          where: { token: input.invitationToken },
+      if (existingCandidate) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "You are already registered as a candidate.",
         })
       }
 
-      const appUrl = getAppUrl()
-      const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
-
-      const html = renderEmailVerificationTemplate({ userName: input.name, verifyLink })
-      await sendTransactionalEmail({
-        to: email,
-        subject: "Verify your Dev-Center Account Email",
-        html,
-        idempotencyKey: `verify-email/${user.id}-${Date.now()}`,
+      await ctx.prisma.candidate.create({
+        data: {
+          userId,
+        },
       })
 
       return {
         success: true,
-        message: "Employer account created! Please check your email to verify your account.",
-        userId: user.id,
+        message: "Candidate profile created successfully.",
       }
     }),
 
-  createOrganization: publicProcedure
-    .input(
-      z.object({
-        companyName: z.string().min(2, "Company name is required"),
-        domain: z.string().optional(),
-        websiteUrl: z.string().url("Invalid website URL").optional().or(z.literal("")),
-        linkedinUrl: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("")),
-        industry: z.string().optional(),
-        city: z.string().optional(),
-        country: z.string().optional(),
-        timezone: z.string().default("UTC"),
-      })
-    )
+  createOrganization: protectedProcedure
+    .input(setupOrgSchema)
     .mutation(async ({ ctx, input }) => {
-      if (!ctx.session?.user?.id) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "You must be logged in to create an organization.",
-        })
-      }
-
       const userId = ctx.session.user.id
       const domain = input.domain?.trim().toLowerCase() || null
 
@@ -256,75 +152,82 @@ export const authRouter = router({
         where: { userId },
       })
 
-      if (!currentEmployee) {
+      if (currentEmployee) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "No initial employee profile found for the user.",
+          code: "CONFLICT",
+          message: "You are already registered as an employee of an organization.",
         })
       }
 
-      // Update Organization + BusinessUnit + HQ Branch + Department
-      const updatedOrg = await ctx.prisma.organization.update({
-        where: { id: currentEmployee.organizationId },
-        data: {
-          name: input.companyName.trim(),
-          domain,
-          websiteUrl: input.websiteUrl || null,
-          linkedinUrl: input.linkedinUrl || null,
-          industry: input.industry || null,
-          businessUnits: {
-            create: {
-              name: "Main Operations",
-              branches: {
-                create: {
-                  name: "Headquarters",
-                  isHeadOffice: true,
-                  city: input.city || null,
-                  country: input.country || null,
-                  timezone: input.timezone,
-                  organizationId: currentEmployee.organizationId,
-                  departments: {
-                    create: {
-                      name: "General Management",
-                      organizationId: currentEmployee.organizationId,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        include: {
-          businessUnits: {
-            include: {
-              branches: {
-                include: {
-                  departments: true,
-                },
-              },
-            },
-          },
-        },
+      const currentCandidate = await ctx.prisma.candidate.findUnique({
+        where: { userId },
       })
 
-      const bu = updatedOrg.businessUnits?.[updatedOrg.businessUnits.length - 1]
-      const branch = bu?.branches?.[bu.branches.length - 1]
-      const dept = branch?.departments?.[branch.departments.length - 1]
+      if (currentCandidate) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "You are already registered as a candidate.",
+        })
+      }
 
-      await ctx.prisma.employee.update({
-        where: { id: currentEmployee.id },
-        data: {
-          businessUnitId: bu?.id || null,
-          branchId: branch?.id || null,
-          departmentId: dept?.id || null,
-        },
+      const { newOrg, employee } = await ctx.prisma.$transaction(async (tx) => {
+        const org = await tx.organization.create({
+          data: {
+            name: input.companyName.trim(),
+            domain,
+            websiteUrl: input.websiteUrl || null,
+            linkedinUrl: input.linkedinUrl || null,
+            industry: input.industry || null,
+          },
+        })
+
+        const bu = await tx.businessUnit.create({
+          data: {
+            organizationId: org.id,
+            name: "Main Operations",
+          },
+        })
+
+        const branch = await tx.branch.create({
+          data: {
+            organizationId: org.id,
+            businessUnitId: bu.id,
+            name: "Headquarters",
+            isHeadOffice: true,
+            city: input.city || null,
+            country: input.country || null,
+            timezone: input.timezone,
+          },
+        })
+
+        const dept = await tx.department.create({
+          data: {
+            organizationId: org.id,
+            branchId: branch.id,
+            name: "General Management",
+          },
+        })
+
+        const emp = await tx.employee.create({
+          data: {
+            organizationId: org.id,
+            businessUnitId: bu.id,
+            branchId: branch.id,
+            departmentId: dept.id,
+            userId,
+            role: EmployeeRole.OWNER,
+            status: EmployeeStatus.ACTIVE,
+          },
+        })
+
+        return { newOrg: org, employee: emp }
       })
 
       return {
         success: true,
-        organizationId: updatedOrg.id,
-        employeeId: currentEmployee.id,
-        message: "Organization & Headquarters updated successfully!",
+        organizationId: newOrg.id,
+        employeeId: employee.id,
+        message: "Organization & Headquarters created successfully!",
       }
     }),
 
@@ -339,7 +242,7 @@ export const authRouter = router({
       if (!user) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "No account found with this email address.",
+          message: "This email is not registered. Please create an account first.",
         })
       }
 
@@ -411,6 +314,49 @@ export const authRouter = router({
       ])
 
       return { success: true, message: "Email verified successfully! You can now log in." }
+    }),
+
+  resendVerificationEmail: publicProcedure
+    .input(z.object({ email: z.string().email() }))
+    .mutation(async ({ ctx, input }) => {
+      const email = input.email.trim().toLowerCase()
+
+      await checkRateLimit(ctx.prisma, `resend-verify:${email}`, 3, 15 * 60 * 1000)
+
+      const user = await ctx.prisma.user.findUnique({ where: { email } })
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "User not found. Your session may be invalid. Please sign out and try logging in again.",
+        })
+      }
+
+      const token = await generateAndSaveToken(ctx.prisma, `verify-email:${email}`, 24 * 60 * 60 * 1000)
+
+      const appUrl = getAppUrl()
+      const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
+
+      const html = renderEmailVerificationTemplate({
+        userName: user.name || "User",
+        verifyLink,
+      })
+
+      const res = await sendTransactionalEmail({
+        to: email,
+        subject: "Verify your Dev-Center Account Email",
+        html,
+        idempotencyKey: `resend-verify-email/${user.id}-${Date.now()}`,
+      })
+
+      if (!res.success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to send email: ${res.error}`,
+        })
+      }
+
+      return { success: true, message: "A new verification email has been sent. Please check your inbox." }
     }),
 
   requestPasswordReset: publicProcedure
@@ -494,17 +440,17 @@ export const authRouter = router({
       await ctx.prisma.$transaction([
         existingAccount
           ? ctx.prisma.account.update({
-              where: { id: existingAccount.id },
-              data: { providerAccountId: passwordHash },
-            })
+            where: { id: existingAccount.id },
+            data: { providerAccountId: passwordHash },
+          })
           : ctx.prisma.account.create({
-              data: {
-                userId: user.id,
-                type: "credentials",
-                provider: "credentials",
-                providerAccountId: passwordHash,
-              },
-            }),
+            data: {
+              userId: user.id,
+              type: "credentials",
+              provider: "credentials",
+              providerAccountId: passwordHash,
+            },
+          }),
         ctx.prisma.verificationToken.delete({ where: { id: record.id } }),
       ])
 

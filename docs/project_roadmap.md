@@ -46,11 +46,12 @@ This roadmap outlines the implementation schedule, architectural steps, database
 
 ### 2. Custom NextAuth.js Configuration & Strict 5-Stage Auth Lifecycle
 * Setup `auth.ts` under `lib/auth.ts` (Auth.js v5) & `proxy.ts`:
-  * **Progressive 2-Step Registration (`/register`)**: Step 0 Intent Choice -> Step 1 Email Exist Check (`auth.checkEmailExists`) & Social Auth -> Step 2 Name & Password Credentials.
-  * **Email Verification Gate**: Unverified users (`emailVerified === null`) strictly routed to `/verify-email`.
-  * **Organization Setup Gate (`/setup-org`)**: Org Founders set up Company Name, Domain, Website, LinkedIn, and HQ Location to activate `OWNER` status and `/dashboard` access.
+  * **Unified Registration (`/register`)**: Email -> Password (with rate-limited `checkEmailExists` validation) or Social Auth (Google/GitHub).
+  * **Email Verification Gate**: Unverified users (`emailVerified === null`) strictly routed to `/verify-email`. Social users are auto-verified.
+  * **Intent-Based Onboarding (`/onboarding`)**: Users select Candidate or Organization path *after* verifying their email, ensuring no abandoned/dummy DB records.
+  * **Atomic Organization Setup (`/setup-org`)**: Org Founders configure their workspace. A single Prisma `$transaction` creates Organization, BusinessUnit, Branch, Department, and Employee records atomically.
   * **Tokenized Employee Invites**: Employees and branch members join strictly via signed invitation tokens (`/register?inviteToken=xyz`).
-  * **Role-based Security**: Enforce scope-based endpoint protection (tRPC middleware) verifying actions are restricted based on employee's Role and target resource scopes (`GLOBAL`, `BUSINESS_UNIT`, `BRANCH`, `DEPARTMENT`).
+  * **Role-based Security & Cross-Workspace Protection**: Enforce scope-based endpoint protection (tRPC middleware). Strict proxy routing prevents Candidates from accessing the employer `/dashboard`, and prevents Organization Employees from accessing the `/candidate` portal.
 * **Route Groups & Dual Left Sidebar Layout Architecture**:
   * **`(organization)` (B2B Employer & Admin Portal)**: Left Sidebar layout with Organization/Branch Switcher dropdown, and sections for *Overview*, *Hiring Pipeline* (Jobs, Candidates, Interviews), *Governance & CRM* (Approvals Queue, Talent Pools, Referrals), *Question Library*, and *Admin Settings* (Org Hierarchy, Audit Logs, Billing).
   * **`(candidate)` (B2C Candidate Portal & AI Prep Studio)**: Left Sidebar layout with Candidate Avatar, Profile Completion Bar, Prep Pro Badge, and sections for *My Career* (Hub, Applications, Saved Jobs), *AI Prep Studio* (Voice Mock, ATS Resume Review, Coding Arena), and *Billing/Settings*.

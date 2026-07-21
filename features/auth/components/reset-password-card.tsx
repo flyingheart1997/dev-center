@@ -5,13 +5,22 @@ import Link from "next/link"
 import { Controller } from "react-hook-form"
 import { AlertMessage } from "./alert-message"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { useResetPasswordForm } from "@/features/auth/hooks/use-reset-password-form"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function ResetPasswordCard() {
   const { email, token, form, loading, message, handleSubmit } = useResetPasswordForm()
+
+  const generateStrongPassword = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+    let pass = "aZ1!" // guarantee required characters
+    for (let i = 4; i < 16; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return pass.split('').sort(() => 0.5 - Math.random()).join('')
+  }
 
   return (
     <Card className="w-full">
@@ -33,7 +42,18 @@ export function ResetPasswordCard() {
               control={form.control}
               render={({ field, fieldState }) => (
                 <div>
-                  <Input className="h-11" {...field} id="new-password" type="password" placeholder="Minimum 8 characters" aria-invalid={fieldState.invalid} />
+                  <PasswordInput 
+                    className="h-11" 
+                    {...field} 
+                    id="new-password" 
+                    placeholder="Minimum 8 characters" 
+                    aria-invalid={fieldState.invalid} 
+                    onGenerate={() => {
+                      const pwd = generateStrongPassword()
+                      form.setValue("newPassword", pwd, { shouldValidate: true })
+                      form.setValue("confirmPassword", pwd, { shouldValidate: true })
+                    }}
+                  />
                   {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
                 </div>
               )}
@@ -47,7 +67,7 @@ export function ResetPasswordCard() {
               control={form.control}
               render={({ field, fieldState }) => (
                 <div>
-                  <Input className="h-11" {...field} id="confirm-password" type="password" placeholder="Re-enter new password" aria-invalid={fieldState.invalid} />
+                  <PasswordInput className="h-11" {...field} id="confirm-password" placeholder="Re-enter new password" aria-invalid={fieldState.invalid} preventPaste={true} preventCopy={true} />
                   {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
                 </div>
               )}
