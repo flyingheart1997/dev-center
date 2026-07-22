@@ -1,8 +1,9 @@
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
+CREATE SCHEMA IF NOT EXISTS "extensions";
 
 -- CreateExtension
-CREATE EXTENSION IF NOT EXISTS "citext";
+CREATE EXTENSION IF NOT EXISTS "citext" WITH SCHEMA "extensions";
 
 -- CreateExtension
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
