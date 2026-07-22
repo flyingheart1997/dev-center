@@ -1,6 +1,6 @@
 datasource db {
   provider   = "postgresql"
-  extensions = [citext, pgcrypto, pg_stat_statements, supabase_vault, uuid_ossp(map: "uuid-ossp")]
+  extensions = [citext(schema: "extensions"), pgcrypto, pg_stat_statements, supabase_vault, uuid_ossp(map: "uuid-ossp")]
 }
 
 generator client {
