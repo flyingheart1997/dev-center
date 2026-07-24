@@ -32,7 +32,7 @@ export function useLoginForm() {
 
     const interval = setInterval(() => {
       setResendCooldown((prev) => (prev <= 1 ? 0 : prev - 1))
-    }, 2000)
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [resendCooldown])
@@ -58,7 +58,22 @@ export function useLoginForm() {
       } else if (errorParam === "OAuthAccountNotRegistered") {
         setMessage({
           type: "error",
-          text: "This email is not registered. Please create an account first.",
+          text: "Email is not registered with an account. Please sign up to create one.",
+        })
+      } else if (errorParam === "WorkEmailRequired") {
+        setMessage({
+          type: "error",
+          text: "Organization accounts require a work email. Please use your company email to sign up.",
+        })
+      } else if (errorParam === "TooManyAttempts") {
+        setMessage({
+          type: "error",
+          text: "Too many sign-in attempts. Please try again later.",
+        })
+      } else if (errorParam === "AccountDeactivated") {
+        setMessage({
+          type: "error",
+          text: "This account has been deactivated.",
         })
       } else {
         setMessage({

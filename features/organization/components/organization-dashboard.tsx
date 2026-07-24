@@ -20,32 +20,32 @@ export function OrganizationDashboard({ children }: { children: React.ReactNode 
     },
     {
       label: "ATS Jobs & Pipeline",
-      href: "/dashboard/jobs",
+      href: "/jobs",
       icon: <Briefcase className="h-5 w-5 text-neutral-700 dark:text-neutral-200 shrink-0" />,
     },
     {
       label: "Candidates",
-      href: "/dashboard/candidates",
+      href: "/candidates",
       icon: <Users className="h-5 w-5 text-neutral-700 dark:text-neutral-200 shrink-0" />,
     },
     {
       label: "Live Interviews",
-      href: "/dashboard/interviews",
+      href: "/interviews",
       icon: <Video className="h-5 w-5 text-neutral-700 dark:text-neutral-200 shrink-0" />,
     },
     {
       label: "Team & Approvals",
-      href: "/dashboard/team",
+      href: "/team",
       icon: <UserCheck className="h-5 w-5 text-neutral-700 dark:text-neutral-200 shrink-0" />,
     },
     {
       label: "Billing & Plans",
-      href: "/dashboard/billing",
+      href: "/billing",
       icon: <CreditCard className="h-5 w-5 text-neutral-700 dark:text-neutral-200 shrink-0" />,
     },
     {
       label: "Settings",
-      href: "/dashboard/settings",
+      href: "/settings",
       icon: <Settings className="h-5 w-5 text-neutral-700 dark:text-neutral-200 shrink-0" />,
     },
   ]

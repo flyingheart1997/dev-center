@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 
 export type SocialProvider = "google" | "github" | "linkedin"
+export type SocialAuthIntent = "candidate" | "organization"
 
 interface SocialButtonProps {
   provider: SocialProvider
+  mode?: "login" | "register"
+  intent?: SocialAuthIntent
+  disabled?: boolean
   callbackUrl?: string
   className?: string
   children?: React.ReactNode
@@ -62,7 +66,10 @@ const PROVIDER_CONFIG: Record<
 
 export function SocialButton({
   provider,
-  callbackUrl = "/dashboard",
+  mode = "login",
+  intent,
+  disabled = false,
+  callbackUrl,
   className = "",
   children,
 }: SocialButtonProps) {
@@ -73,7 +80,13 @@ export function SocialButton({
   const handleSignIn = async () => {
     setLoading(true)
     try {
-      await signIn(provider, { callbackUrl })
+      const cookieValue = mode === "register" ? `register:${intent || "candidate"}` : "login"
+      document.cookie = `__dc_auth_mode=${cookieValue}; path=/; max-age=300; samesite=lax`
+
+      const resolvedCallbackUrl =
+        callbackUrl || (mode === "register" && intent === "organization" ? "/setup-org" : "/dashboard")
+
+      await signIn(provider, { callbackUrl: resolvedCallbackUrl })
     } catch {
       setLoading(false)
     }
@@ -83,7 +96,7 @@ export function SocialButton({
     <Button
       type="button"
       variant="outline"
-      disabled={loading}
+      disabled={loading || disabled}
       onClick={handleSignIn}
       className={`w-full h-11 flex items-center justify-center gap-2 text-sm font-medium border-border bg-card hover:bg-accent text-foreground shadow-sm transition active:scale-98 ${className}`}
     >

@@ -9,18 +9,10 @@ import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { useResetPasswordForm } from "@/features/auth/hooks/use-reset-password-form"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { generateStrongPassword } from "@/features/auth/utils/password-utils"
 
 export function ResetPasswordCard() {
   const { email, token, form, loading, message, handleSubmit } = useResetPasswordForm()
-
-  const generateStrongPassword = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
-    let pass = "aZ1!" // guarantee required characters
-    for (let i = 4; i < 16; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return pass.split('').sort(() => 0.5 - Math.random()).join('')
-  }
 
   return (
     <Card className="w-full">

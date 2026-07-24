@@ -42,14 +42,36 @@ function isPublicRoute(pathname: string) {
   )
 }
 
+// /dashboard is the single shared landing route — the page itself renders the org or
+// candidate view based on session. Every other org/candidate page lives at a bare
+// top-level path (via the (organization)/(candidate) route groups under (dashboard)),
+// so there's no shared URL prefix left to gate on. Each such route must be registered
+// in exactly one of these sets for the cross-workspace check below to protect it.
+const CANDIDATE_ONLY_ROUTE_SEGMENTS = new Set([
+  "voice-arena",
+  "resume-studio",
+  "coding-practice",
+  "applications",
+  "profile",
+])
+
+const ORG_ONLY_ROUTE_SEGMENTS = new Set([
+  "jobs",
+  "candidates",
+  "interviews",
+  "team",
+  "billing",
+  "settings",
+])
+
 function resolveUserWorkspaceRedirect(token: any, request: NextRequest): NextResponse {
-  if (token?.organizationId || token?.employeeId) {
+  if (token?.organizationId || token?.employeeId || token?.candidateId) {
     return NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
   }
-  if (token?.candidateId) {
-    return NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
-  }
-  return NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
+  // Intent (candidate vs organization) is chosen at registration time now, and candidates
+  // are auto-created the moment they verify/sign up — so the only way an authenticated user
+  // has no workspace at all is an organization sign-up that hasn't finished /setup-org yet.
+  return NextResponse.redirect(getSafeRedirectUrl("/setup-org", request))
 }
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
@@ -129,43 +151,36 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Prevent onboarded users from accessing /onboarding
-  if (isAuthenticated && pathname === "/onboarding" && (token?.candidateId || token?.organizationId || token?.employeeId)) {
-    if (!isAppRouterDataRequest(request)) {
-      return resolveUserWorkspaceRedirect(token, request)
-    }
-  }
-
-  // Cross-Workspace Protection
+  // Cross-Workspace Protection. /dashboard itself is shared (the page renders per-session);
+  // every other registered dashboard-area route is gated by which persona owns it.
   if (isAuthenticated) {
-    if (pathname.startsWith("/dashboard") || pathname.startsWith("/organization")) {
-      if (!token?.organizationId && !token?.employeeId) {
-        if (!isAppRouterDataRequest(request)) {
-           return token?.candidateId 
-             ? NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
-             : NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
-        }
-      }
-    }
+    const hasOrgAccess = !!(token?.organizationId || token?.employeeId)
+    const hasCandidateAccess = !!token?.candidateId
+    const topSegment = pathname.split("/")[1] // "/dashboard" -> "dashboard", "/jobs" -> "jobs"
 
-    if (pathname.startsWith("/candidate")) {
-      if (!token?.candidateId) {
-        if (!isAppRouterDataRequest(request)) {
-           return (token?.organizationId || token?.employeeId)
-             ? NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
-             : NextResponse.redirect(getSafeRedirectUrl("/onboarding", request))
-        }
+    if (topSegment === "dashboard") {
+      if (!hasOrgAccess && !hasCandidateAccess && !isAppRouterDataRequest(request)) {
+        return NextResponse.redirect(getSafeRedirectUrl("/setup-org", request))
+      }
+    } else if (CANDIDATE_ONLY_ROUTE_SEGMENTS.has(topSegment)) {
+      if (!hasCandidateAccess && !isAppRouterDataRequest(request)) {
+        return hasOrgAccess
+          ? NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
+          : NextResponse.redirect(getSafeRedirectUrl("/setup-org", request))
+      }
+    } else if (ORG_ONLY_ROUTE_SEGMENTS.has(topSegment)) {
+      if (!hasOrgAccess && !isAppRouterDataRequest(request)) {
+        return hasCandidateAccess
+          ? NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
+          : NextResponse.redirect(getSafeRedirectUrl("/setup-org", request))
       }
     }
   }
 
-  // Logged-in user visiting /setup-org when Org is ALREADY set up OR is a Candidate
+  // Logged-in user visiting /setup-org when a workspace already exists
   if (isAuthenticated && pathname === "/setup-org") {
-    if (token?.organizationId || token?.employeeId) {
+    if (token?.organizationId || token?.employeeId || token?.candidateId) {
       if (!isAppRouterDataRequest(request)) return NextResponse.redirect(getSafeRedirectUrl("/dashboard", request))
-    }
-    if (token?.candidateId) {
-      if (!isAppRouterDataRequest(request)) return NextResponse.redirect(getSafeRedirectUrl("/candidate", request))
     }
   }
 

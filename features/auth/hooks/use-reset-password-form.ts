@@ -38,6 +38,7 @@ export function useResetPasswordForm() {
         token: data.token,
         email: data.email.trim(),
         newPassword: data.newPassword,
+        confirmPassword: data.confirmPassword,
       })
       setMessage({ type: "success", text: res.message })
       setTimeout(() => {

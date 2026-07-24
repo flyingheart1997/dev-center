@@ -5,17 +5,28 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useRegisterForm } from "@/features/auth/hooks/use-register-form"
 import { AlertMessage } from "./alert-message"
+import { RegisterIntentStep } from "./register-intent-step"
 import { RegisterEmailStep } from "./register-email-step"
 import { RegisterCredentialsStep } from "./register-credentials-step"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
+const STEP_DESCRIPTIONS: Record<number, string> = {
+  0: "How do you want to use Dev Center?",
+  1: "Join Dev Center for AI-powered screening, live interviews, and candidate management.",
+  2: "Enter your full name and set a secure password to complete setting up your account.",
+}
+
 export function RegisterCard() {
   const {
     step,
+    intent,
+    setIntent,
+    inviteDetails,
     registerForm,
+    handleIntentContinue,
     handleNextStep,
-    handleBackToStep1,
+    handleBackStep,
     handleRegister,
     loading,
     message,
@@ -24,42 +35,44 @@ export function RegisterCard() {
   return (
     <Card className="w-full border-border bg-card relative shadow-md">
       <CardHeader className="text-center space-y-2 pt-4 relative">
-        {step === 2 && (
+        {step > 0 && !inviteDetails && (
           <Button
             type="button"
             variant="outline"
             size="icon"
-            onClick={handleBackToStep1}
-            className="absolute left-4 top-2 rounded-full h-9 w-9 shadow-sm"
-            aria-label="Back to step 1"
+            onClick={handleBackStep}
+            className="absolute left-3 -top-1 rounded-full h-9 w-9 shadow-sm"
+            aria-label="Back"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
         <CardTitle className="text-3xl font-bold tracking-tight text-foreground">
-          Create your Account
+          Create your {intent === 'organization' ? 'Organization' : 'Account'}
         </CardTitle>
         <CardDescription className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-          {step === 1
-            ? "Join Dev Center for AI-powered screening, live interviews, and candidate management."
-            : "Enter your full name and set a secure password to complete setting up your account."}
+          {STEP_DESCRIPTIONS[step]}
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Alert Message */}
         {message && <AlertMessage message={message} />}
 
-        {/* STEP 1: Email & Social Auth */}
-        {step === 1 && (
+        {step === 0 && (
+          <RegisterIntentStep intent={intent} onSelect={setIntent} onContinue={handleIntentContinue} />
+        )}
+
+        {step === 1 && intent && (
           <RegisterEmailStep
             registerForm={registerForm}
+            intent={intent}
             onNext={handleNextStep}
             loading={loading}
+            inviteDetails={inviteDetails}
+            emailLocked={!!inviteDetails}
           />
         )}
 
-        {/* STEP 2: Credentials Input */}
         {step === 2 && (
           <RegisterCredentialsStep
             registerForm={registerForm}
