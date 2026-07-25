@@ -14,15 +14,21 @@ This document defines the complete technical stack, configurations, and frontend
 
 ## 2. Authentication & Authorization
 * **Provider**: **Auth.js (NextAuth v5)** with custom Next.js 16 Edge Route Security Gateway (`proxy.ts`).
-* **Database Integration**: Prisma Adapter (`User`, `Account`, `Session`, `VerificationToken`, and `RateLimit` stored in PostgreSQL).
-* **Security & Performance**: Prisma-backed rate limiting for email endpoints, `$transaction` blocks for token generation, and optimized NextAuth Edge middleware (`proxy.ts`).
-* **Session Strategy**: JWT (JSON Web Tokens) with custom claims (`organization_id`, `employee_id`, `candidate_id`, `role`, `emailVerified`).
+* **Database Integration**: Prisma Adapter (`User`, `Account`, `Session`, `VerificationToken`, `RateLimit`, and `AuditLog` stored in PostgreSQL).
+* **Instant Token Invalidation & Versioning (`tokenVersion`)**: Any password change, user deletion, status update, or security reset increments `User.tokenVersion`, instantly invalidating active JWT tokens across all devices.
+* **High-Performance `AuthCache` Layer (`lib/utils/auth-cache.ts`)**: Generic `AuthCache<T>` interface backed by a 30-second TTL LRU memory cache (`process.env.AUTH_CACHE_TTL || 30000` ms) using `user:${userId}:${tokenVersion}` keys to prevent database connection overload while guaranteeing near-instant security invalidation. Pluggable for Redis (Upstash) when scaling horizontally.
+* **Lightweight Middleware Gateway (`proxy.ts`)**: Fast, stateless Edge middleware checking session presence and route access without heavy database lookups. Deep business logic and employee status checks (`PENDING_APPROVAL`, `SUSPENDED`) are enforced in tRPC `protectedProcedure`.
+* **Soft Session Revocation & Device Management**: `Session` table enhanced with `userAgent`, `ipAddress`, `createdAt`, `lastSeenAt`, and `revokedAt DateTime?` for soft session revocation ("Logout Other Devices") without destroying forensic audit trails. Raw `userAgent` stored and dynamically parsed in the UI.
+* **Type-Safe Security Audit Logging (`AuditLog` + `AuditEvent`)**: `AuditLog` model updated with `AuditEvent` enum (`PASSWORD_CHANGED`, `ROLE_CHANGED`, `SESSION_REVOKED`, `USER_DISABLED`, `MEMBER_INVITED`, `EMPLOYEE_STATUS_CHANGED`, `EMAIL_VERIFIED`, `ORGANIZATION_CREATED`) capturing both User and Employee security events.
+* **Global 401 Client Interceptor (`lib/trpc/provider.tsx`)**: Global QueryCache/MutationCache error handling catches 401 `UNAUTHORIZED` responses and automatically invokes `signOut({ callbackUrl: "/login?error=SessionExpired" })` to kick invalid/deleted users to the login screen without requiring a manual browser refresh.
+* **Background Auth Cleanup Cron (`/api/cron/cleanup-auth`)**: Protected API endpoint (secured via `CRON_SECRET`) executing modular purges for expired tokens, rate limits, invitations, and sessions.
+* **Session Strategy**: JWT (JSON Web Tokens) with custom claims (`organization_id`, `employee_id`, `candidate_id`, `role`, `emailVerified`, `tokenVersion`).
 * **5-Stage Auth Lifecycle**:
   * **Progressive 2-Step Registration (`/register`)**: Step 0 Intent Choice -> Step 1 Email check (`checkEmailExists`) & Social Auth -> Step 2 Credentials.
   * **Email Verification Gate**: Unverified users (`emailVerified === null`) strictly routed to `/verify-email`.
   * **Organization Setup (`/setup-org`)**: Org Founders set up Company Name, Domain, Website, LinkedIn, Industry, and HQ Location.
   * **Tokenized Employee Invites**: Team members join strictly via signed invitation tokens (`/register?inviteToken=xyz`).
-* **3NF Identity Normalization**: `User` model acts as single source of truth for identity & contact details (`phone`, `location`, `linkedinUrl`, `githubUrl`, `portfolioUrl`, `resumeUrl`), while `Candidate` and `Employee` hold domain-specific relations.
+* **3NF Identity Normalization**: `User` model acts as single source of truth for identity & contact details (`phone`, `location`, `linkedinUrl`, `githubUrl`, `portfolioUrl`, `resumeUrl`, `tokenVersion`, `lastPasswordChangedAt`), while `Candidate` and `Employee` hold domain-specific relations.
 * **Transactional Email Engine**: **Resend** for email verification links, 6-digit OTP codes, invitation links, and password resets.
 
 ---

@@ -224,16 +224,22 @@ We will use a modern, developer-friendly, and highly scalable stack:
 * **Database**: **PostgreSQL** (relational structures are perfect for ATS workflows, candidate states, complex audit logs, and `citext` for case-insensitive auth).
 * **ORM**: **Prisma ORM** (type-safe queries, migration handling, and clean relations).
 * **Authentication**: **Auth.js (NextAuth v5)** with **Next.js 16 Edge Route Security Gateway (`proxy.ts`)**:
-  * **Database Storage**: Uses **Prisma Adapter** to store all authentication schemas (`User`, `Account`, `Session`, `VerificationToken`, `RateLimit`) directly inside our PostgreSQL database (100% data ownership).
-  * **Session Strategy**: **JWT (JSON Web Tokens)** strategy with custom session claims (`organization_id`, `employee_id`, `candidate_id`, `role`, `emailVerified`).
+  * **Database Storage**: Uses **Prisma Adapter** to store all authentication schemas (`User`, `Account`, `Session`, `VerificationToken`, `RateLimit`, `AuditLog`) directly inside our PostgreSQL database (100% data ownership).
+  * **Session Strategy**: **JWT (JSON Web Tokens)** strategy with custom session claims (`organization_id`, `employee_id`, `candidate_id`, `role`, `emailVerified`, `tokenVersion`).
+  * **Instant Token Invalidation (`tokenVersion`)**: Any password change, user deletion, status update, or security reset increments `tokenVersion`, invalidating active JWT tokens instantly across all devices.
+  * **High-Performance `AuthCache` Layer (`lib/utils/auth-cache.ts`)**: `AuthCache<T>` abstraction backed by a 30s TTL LRU memory cache (`AUTH_CACHE_TTL`) using `user:${userId}:${tokenVersion}` keys for database connection safety.
+  * **Soft Session Revocation & Device Management**: `Session` table tracks `userAgent`, `ipAddress`, `createdAt`, `lastSeenAt`, and `revokedAt` for soft session revocation ("Logout Other Devices").
+  * **Security Audit Logging (`AuditLog` + `AuditEvent`)**: Type-safe `AuditEvent` enum (`PASSWORD_CHANGED`, `ROLE_CHANGED`, `SESSION_REVOKED`, `USER_DISABLED`, `MEMBER_INVITED`, `EMPLOYEE_STATUS_CHANGED`, `EMAIL_VERIFIED`, `ORGANIZATION_CREATED`) capturing security events across Users and Employees.
+  * **Global 401 Client Interceptor**: `TRPCProvider` catches 401 `UNAUTHORIZED` responses and automatically triggers client-side `signOut({ callbackUrl: "/login?error=SessionExpired" })`.
   * **5-Stage Auth Lifecycle**:
-    1) Unified Registration (`/register`: Email & Password / Social).
+    1) Progressive 2-Step Registration (`/register`: Step 0 Intent -> Step 1 Email check & Social -> Step 2 Credentials).
     2) Email Verification Gate (`emailVerified === null` strictly forced to `/verify-email`).
-    3) Intent-Based Onboarding (`/onboarding` routes user to Candidate or Organization path).
-    4) Atomic Organization Setup (`/setup-org` uses Prisma `$transaction` to build Org tree).
-    5) Role & Strict Scope Workspace Routing (`proxy.ts` prevents cross-workspace access between `/dashboard` and `/candidate`).
-  * **3NF Identity Normalization**: `User` model acts as single source of truth for identity & contact info (`phone`, `location`, `linkedinUrl`, `githubUrl`, `portfolioUrl`, `resumeUrl`).
-  * **Custom Verification Pipeline**: Uses **Resend** to send transactional OTP/magic link verification codes for onboarding and password-resets.
+    3) Atomic Organization Setup (`/setup-org` uses Prisma `$transaction` to build Org tree).
+    4) Tokenized Employee Invites (`/register?inviteToken=xyz`).
+    5) Role & Scope Workspace Routing (`proxy.ts` prevents cross-workspace access between `/dashboard` and `/candidate`).
+  * **3NF Identity Normalization**: `User` model acts as single source of truth for identity & contact info (`phone`, `location`, `linkedinUrl`, `githubUrl`, `portfolioUrl`, `resumeUrl`, `tokenVersion`, `lastPasswordChangedAt`).
+  * **Custom Verification Pipeline**: Uses **Resend** to send transactional OTP codes, verification links, employee invites, and password resets.
+  * **Background Cleanup Cron (`/api/cron/cleanup-auth`)**: Protected API endpoint executing modular purges for expired tokens, rate limits, invites, and sessions.
 * **State & API Layer**:
   * **tRPC**: For end-to-end type-safe API requests.
   * **TanStack Query (React Query)**: For server state management, caching, and background sync on the client.

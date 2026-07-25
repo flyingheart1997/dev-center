@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Label } from "@/components/ui/label"
 import { RegisterUserInput } from "../schema/auth-schemas"
+import { generateStrongPassword } from "../utils/password-utils"
 
 interface RegisterCredentialsStepProps {
   registerForm: UseFormReturn<RegisterUserInput>
@@ -19,15 +20,6 @@ export function RegisterCredentialsStep({
   onSubmit,
   loading,
 }: RegisterCredentialsStepProps) {
-  const generateStrongPassword = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
-    let pass = "aZ1!" // guarantee required characters
-    for (let i = 4; i < 16; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return pass.split('').sort(() => 0.5 - Math.random()).join('')
-  }
-  
   return (
     <form onSubmit={registerForm.handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
@@ -44,23 +36,14 @@ export function RegisterCredentialsStep({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="cand-name" className="text-sm font-medium text-foreground">
+        <Label htmlFor="cand-name-display" className="text-sm font-medium text-foreground">
           Full Name
         </Label>
         <Controller
           name="name"
           control={registerForm.control}
-          render={({ field, fieldState }) => (
-            <div>
-              <Input
-                {...field}
-                id="cand-name"
-                placeholder="John Doe"
-                className="h-11"
-                aria-invalid={fieldState.invalid}
-              />
-              {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
-            </div>
+          render={({ field }) => (
+            <Input {...field} id="cand-name-display" disabled className="h-11 bg-muted text-muted-foreground" />
           )}
         />
       </div>

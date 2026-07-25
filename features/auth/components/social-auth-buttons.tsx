@@ -1,16 +1,22 @@
 "use client"
 
 import React from "react"
-import { SocialButton, SocialProvider } from "@/components/ui/social-button"
+import { SocialButton, SocialProvider, SocialAuthIntent } from "@/components/ui/social-button"
 
 interface SocialAuthButtonsProps {
   providers?: SocialProvider[]
+  mode?: "login" | "register"
+  intent?: SocialAuthIntent
+  disabled?: boolean
   callbackUrl?: string
 }
 
 export function SocialAuthButtons({
   providers = ["google", "github", "linkedin"],
-  callbackUrl = "/dashboard",
+  mode = "login",
+  intent,
+  disabled = false,
+  callbackUrl,
 }: SocialAuthButtonsProps) {
   return (
     <div className="w-full space-y-3">
@@ -23,9 +29,15 @@ export function SocialAuthButtons({
         </div>
       </div>
       {providers.map((provider) => (
-        <SocialButton key={provider} provider={provider} callbackUrl={callbackUrl} />
+        <SocialButton
+          key={provider}
+          provider={provider}
+          mode={mode}
+          intent={intent}
+          disabled={disabled}
+          callbackUrl={callbackUrl}
+        />
       ))}
-
     </div>
   )
 }

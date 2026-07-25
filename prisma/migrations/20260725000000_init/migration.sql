@@ -1,6 +1,5 @@
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
-CREATE SCHEMA IF NOT EXISTS "extensions";
 
 -- CreateExtension
 CREATE EXTENSION IF NOT EXISTS "citext" WITH SCHEMA "extensions";
@@ -87,7 +86,8 @@ CREATE TYPE "SubmissionStatus" AS ENUM ('Pending', 'Running', 'Accepted', 'Wrong
 CREATE TABLE "Organization" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "domain" TEXT,
+    "domain" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
     "websiteUrl" TEXT,
     "linkedinUrl" TEXT,
     "logoUrl" TEXT,
@@ -104,11 +104,25 @@ CREATE TABLE "BusinessUnit" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "slug" TEXT,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "BusinessUnit_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "EmployeeWorkspace" (
+    "id" TEXT NOT NULL,
+    "employeeId" TEXT NOT NULL,
+    "businessUnitId" TEXT NOT NULL,
+    "role" "EmployeeRole" NOT NULL DEFAULT 'Interviewer',
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "assignedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "EmployeeWorkspace_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -456,6 +470,8 @@ CREATE TABLE "User" (
     "name" TEXT,
     "email" CITEXT,
     "emailVerified" TIMESTAMP(3),
+    "hashedPassword" TEXT,
+    "deletedAt" TIMESTAMP(3),
     "image" TEXT,
     "phone" TEXT,
     "linkedinUrl" TEXT,
@@ -753,10 +769,22 @@ CREATE TABLE "_InterviewInterviewers" (
 CREATE UNIQUE INDEX "Organization_domain_key" ON "Organization"("domain");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Organization_slug_key" ON "Organization"("slug");
+
+-- CreateIndex
 CREATE INDEX "BusinessUnit_organizationId_idx" ON "BusinessUnit"("organizationId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "BusinessUnit_organizationId_name_key" ON "BusinessUnit"("organizationId", "name");
+
+-- CreateIndex
+CREATE INDEX "EmployeeWorkspace_employeeId_idx" ON "EmployeeWorkspace"("employeeId");
+
+-- CreateIndex
+CREATE INDEX "EmployeeWorkspace_businessUnitId_idx" ON "EmployeeWorkspace"("businessUnitId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EmployeeWorkspace_employeeId_businessUnitId_key" ON "EmployeeWorkspace"("employeeId", "businessUnitId");
 
 -- CreateIndex
 CREATE INDEX "Branch_organizationId_idx" ON "Branch"("organizationId");
@@ -924,7 +952,13 @@ CREATE INDEX "EmployeeInvitation_branchId_idx" ON "EmployeeInvitation"("branchId
 CREATE INDEX "EmployeeInvitation_departmentId_idx" ON "EmployeeInvitation"("departmentId");
 
 -- CreateIndex
+CREATE INDEX "EmployeeInvitation_expiresAt_idx" ON "EmployeeInvitation"("expiresAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- CreateIndex
+CREATE INDEX "Account_userId_idx" ON "Account"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");
@@ -934,6 +968,12 @@ CREATE UNIQUE INDEX "Session_sessionToken_key" ON "Session"("sessionToken");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "VerificationToken_token_key" ON "VerificationToken"("token");
+
+-- CreateIndex
+CREATE INDEX "VerificationToken_identifier_idx" ON "VerificationToken"("identifier");
+
+-- CreateIndex
+CREATE INDEX "VerificationToken_expires_idx" ON "VerificationToken"("expires");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
@@ -1047,10 +1087,19 @@ CREATE UNIQUE INDEX "RateLimit_key_key" ON "RateLimit"("key");
 CREATE INDEX "RateLimit_key_idx" ON "RateLimit"("key");
 
 -- CreateIndex
+CREATE INDEX "RateLimit_expiresAt_idx" ON "RateLimit"("expiresAt");
+
+-- CreateIndex
 CREATE INDEX "_InterviewInterviewers_B_index" ON "_InterviewInterviewers"("B");
 
 -- AddForeignKey
 ALTER TABLE "BusinessUnit" ADD CONSTRAINT "BusinessUnit_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EmployeeWorkspace" ADD CONSTRAINT "EmployeeWorkspace_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EmployeeWorkspace" ADD CONSTRAINT "EmployeeWorkspace_businessUnitId_fkey" FOREIGN KEY ("businessUnitId") REFERENCES "BusinessUnit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Branch" ADD CONSTRAINT "Branch_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1264,4 +1313,3 @@ ALTER TABLE "_InterviewInterviewers" ADD CONSTRAINT "_InterviewInterviewers_A_fk
 
 -- AddForeignKey
 ALTER TABLE "_InterviewInterviewers" ADD CONSTRAINT "_InterviewInterviewers_B_fkey" FOREIGN KEY ("B") REFERENCES "Interview"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

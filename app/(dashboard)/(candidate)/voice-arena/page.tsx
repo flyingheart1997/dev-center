@@ -3,7 +3,7 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Mic, FileText, Code2, Sparkles, ArrowRight, Play, CheckCircle2 } from "lucide-react"
+import { Mic, FileText, Code2, Sparkles, ArrowRight } from "lucide-react"
 
 export default function CandidateVoiceArenaPage() {
   const prepTools = [
@@ -12,7 +12,7 @@ export default function CandidateVoiceArenaPage() {
       description: "Practice real-time verbal technical & behavioral interviews with instant Gemini voice feedback.",
       icon: Mic,
       color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-      link: "/candidate/voice-arena",
+      link: "/voice-arena",
       action: "Start Voice Simulation",
     },
     {
@@ -20,7 +20,7 @@ export default function CandidateVoiceArenaPage() {
       description: "Audit your resume against real job descriptions with keyword match scoring & AI suggestions.",
       icon: FileText,
       color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-      link: "/candidate/resume-studio",
+      link: "/resume-studio",
       action: "Analyze Resume",
     },
     {
@@ -28,7 +28,7 @@ export default function CandidateVoiceArenaPage() {
       description: "Solve algorithmic & system design coding challenges with test case execution by AI virtual compiler.",
       icon: Code2,
       color: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-      link: "/candidate/coding-practice",
+      link: "/coding-practice",
       action: "Open Code Editor",
     },
   ]

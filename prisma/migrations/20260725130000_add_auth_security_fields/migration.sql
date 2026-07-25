@@ -1,0 +1,33 @@
+-- CreateEnum
+CREATE TYPE "AuditEvent" AS ENUM ('PASSWORD_CHANGED', 'ROLE_CHANGED', 'SESSION_REVOKED', 'USER_DISABLED', 'MEMBER_INVITED', 'EMPLOYEE_STATUS_CHANGED', 'EMAIL_VERIFIED', 'ORGANIZATION_CREATED');
+
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "tokenVersion" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "lastPasswordChangedAt" TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE "Session" ADD COLUMN "userAgent" TEXT,
+ADD COLUMN "ipAddress" TEXT,
+ADD COLUMN "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN "lastSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN "revokedAt" TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE "AuditLog" DROP CONSTRAINT "AuditLog_organizationId_fkey",
+DROP CONSTRAINT "AuditLog_employeeId_fkey",
+ALTER COLUMN "organizationId" DROP NOT NULL,
+ALTER COLUMN "employeeId" DROP NOT NULL,
+ADD COLUMN "userId" TEXT,
+ADD COLUMN "event" "AuditEvent";
+
+-- CreateIndex
+CREATE INDEX "AuditLog_userId_idx" ON "AuditLog"("userId");
+
+-- AddForeignKey
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_employeeId_fkey" FOREIGN KEY ("employeeId") REFERENCES "Employee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;

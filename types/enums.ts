@@ -11,6 +11,7 @@ export enum EmployeeRole {
 export enum EmployeeStatus {
   ACTIVE = "Active",
   PENDING_APPROVAL = "Pending_Approval",
+  SUSPENDED = "Suspended",
 }
 
 export enum JobStatus {

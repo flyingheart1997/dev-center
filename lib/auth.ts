@@ -5,61 +5,40 @@ import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import LinkedInProvider from "next-auth/providers/linkedin"
 import bcrypt from "bcryptjs"
+import { cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { createJwtUserCache } from "@/lib/utils/auth-cache"
+import { isPublicEmailDomain } from "@/features/auth/utils/domain-utils"
+import {
+  checkAndIncrementFailedLogins,
+  clearFailedLogins,
+  isOAuthRateLimited,
+} from "@/features/auth/utils/rate-limit"
+import {
+  fetchUserWithProfilesByEmail,
+  buildSessionUserPayload,
+} from "@/features/auth/utils/auth-helpers"
+import type { Prisma } from "@/prisma/generated/client"
+
+type CachedJwtUser = Prisma.UserGetPayload<{
+  include: {
+    employees: true
+    candidates: true
+  }
+}>
 
 const oauthProviders: NextAuthOptions["providers"] = []
 
-const MAX_FAILED_ATTEMPTS = 4
-const LOCKOUT_DURATION_MS = 60 * 60 * 1000 // 1 hour
+const CREDENTIAL_PROVIDER_IDS = ["credentials", "credentials-password", "credentials-otp", "credentials-autologin"]
 
-async function checkAndIncrementFailedLogins(email: string) {
-  const key = `failed-login:${email.toLowerCase()}`
-  const now = new Date()
-
-  const existing = await prisma.rateLimit.findUnique({ where: { key } })
-
-  if (existing) {
-    if (existing.expiresAt < now) {
-      await prisma.rateLimit.update({
-        where: { key },
-        data: { points: 1, expiresAt: new Date(now.getTime() + LOCKOUT_DURATION_MS) },
-      })
-      return
-    }
-
-    if (existing.points >= MAX_FAILED_ATTEMPTS) {
-      throw new Error("Too many failed attempts. Your account has been temporarily locked for 1 hour.")
-    }
-
-    await prisma.rateLimit.update({
-      where: { key },
-      data: { points: { increment: 1 } },
-    })
-  } else {
-    await prisma.rateLimit.create({
-      data: {
-        key,
-        points: 1,
-        expiresAt: new Date(now.getTime() + LOCKOUT_DURATION_MS),
-      },
-    })
-  }
-}
-
-async function clearFailedLogins(email: string) {
-  const key = `failed-login:${email.toLowerCase()}`
-  try {
-    await prisma.rateLimit.delete({ where: { key } })
-  } catch (e) {
-    // Ignore if not found
-  }
-}
+export const jwtUserCache = createJwtUserCache<CachedJwtUser>()
 
 if (process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()) {
   oauthProviders.push(
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID.trim(),
       clientSecret: process.env.GOOGLE_CLIENT_SECRET.trim(),
+      allowDangerousEmailAccountLinking: true,
     })
   )
 }
@@ -69,6 +48,7 @@ if (process.env.GITHUB_CLIENT_ID?.trim() && process.env.GITHUB_CLIENT_SECRET?.tr
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID.trim(),
       clientSecret: process.env.GITHUB_CLIENT_SECRET.trim(),
+      allowDangerousEmailAccountLinking: true,
     })
   )
 }
@@ -78,6 +58,16 @@ if (process.env.LINKEDIN_CLIENT_ID?.trim() && process.env.LINKEDIN_CLIENT_SECRET
     LinkedInProvider({
       clientId: process.env.LINKEDIN_CLIENT_ID.trim(),
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET.trim(),
+      allowDangerousEmailAccountLinking: true,
+      userinfo: "https://api.linkedin.com/v2/userinfo",
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+        }
+      },
     })
   )
 }
@@ -110,35 +100,21 @@ export const authOptions: NextAuthOptions = {
 
         const email = credentials.email.toLowerCase()
 
-        // Check rate limit first
-        await checkAndIncrementFailedLogins(email)
+        await checkAndIncrementFailedLogins(prisma, email)
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: {
-            employees: {
-              take: 1,
-              orderBy: { createdAt: "desc" },
-            },
-            candidates: {
-              take: 1,
-              orderBy: { createdAt: "desc" },
-            },
-          },
-        })
+        const user = await fetchUserWithProfilesByEmail(email)
 
         if (!user) {
           throw new Error("This email is not registered. Please create an account first.")
         }
 
-        const account = await prisma.account.findFirst({
-          where: { userId: user.id, provider: "credentials" },
-        })
+        if (user.deletedAt) {
+          throw new Error("This account has been deactivated.")
+        }
 
-        const passwordHash = account?.providerAccountId
-
+        const passwordHash = user.hashedPassword
         if (!passwordHash) {
-          throw new Error("Account relies on social login or OTP. Please use OTP or Google/GitHub login.")
+          throw new Error("Account relies on social login or OTP. Please use OTP or Google/GitHub/LinkedIn login.")
         }
 
         const isValidPassword = await bcrypt.compare(credentials.password, passwordHash)
@@ -146,22 +122,9 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid password")
         }
 
-        await clearFailedLogins(email)
+        await clearFailedLogins(prisma, email)
 
-        const activeEmployee = user.employees[0]
-        const activeCandidate = user.candidates[0]
-
-        return {
-          id: user.id,
-          email: user.email!,
-          name: user.name,
-          image: user.image,
-          organizationId: activeEmployee?.organizationId || null,
-          employeeId: activeEmployee?.id || null,
-          candidateId: activeCandidate?.id || null,
-          role: activeEmployee?.role || null,
-          employeeStatus: activeEmployee?.status || null,
-        }
+        return buildSessionUserPayload(user as any)
       },
     }),
     CredentialsProvider({
@@ -179,8 +142,7 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.toLowerCase()
         const otpCode = credentials.otp.trim()
 
-        // Check rate limit first
-        await checkAndIncrementFailedLogins(email)
+        await checkAndIncrementFailedLogins(prisma, email)
 
         const verificationToken = await prisma.verificationToken.findFirst({
           where: {
@@ -200,123 +162,161 @@ export const authOptions: NextAuthOptions = {
 
         await prisma.verificationToken.delete({ where: { id: verificationToken.id } })
 
-        await clearFailedLogins(email)
+        await clearFailedLogins(prisma, email)
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: {
-            employees: {
-              take: 1,
-              orderBy: { createdAt: "desc" },
-            },
-            candidates: {
-              take: 1,
-              orderBy: { createdAt: "desc" },
-            },
-          },
-        })
+        const user = await fetchUserWithProfilesByEmail(email)
 
         if (!user) {
           throw new Error("This email is not registered. Please create an account first.")
         }
 
-        const activeEmployee = user.employees[0]
-        const activeCandidate = user.candidates[0]
-
-        return {
-          id: user.id,
-          email: user.email!,
-          name: user.name,
-          image: user.image,
-          organizationId: activeEmployee?.organizationId || null,
-          employeeId: activeEmployee?.id || null,
-          candidateId: activeCandidate?.id || null,
-          role: activeEmployee?.role || null,
-          employeeStatus: activeEmployee?.status || null,
+        if (user.deletedAt) {
+          throw new Error("This account has been deactivated.")
         }
+
+        return buildSessionUserPayload(user as any)
+      },
+    }),
+    CredentialsProvider({
+      id: "credentials-autologin",
+      name: "Auto Login",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        token: { label: "Token", type: "text" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.token) {
+          throw new Error("Invalid sign-in request.")
+        }
+
+        const email = credentials.email.toLowerCase()
+        const identifier = `auto-login:${email}`
+
+        const record = await prisma.verificationToken.findFirst({
+          where: { identifier, token: credentials.token },
+        })
+
+        if (!record) {
+          throw new Error("This sign-in link has expired. Please log in manually.")
+        }
+
+        await prisma.verificationToken.delete({ where: { id: record.id } }).catch(() => {})
+
+        if (record.expires < new Date()) {
+          throw new Error("This sign-in link has expired. Please log in manually.")
+        }
+
+        const user = await fetchUserWithProfilesByEmail(email)
+
+        if (!user) {
+          throw new Error("Account not found.")
+        }
+
+        if (user.deletedAt) {
+          throw new Error("This account has been deactivated.")
+        }
+
+        return buildSessionUserPayload(user as any)
       },
     }),
   ],
-  events: {
-    async createUser({ user }) {
-      if (user.id) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { emailVerified: new Date() },
-        }).catch(() => { })
-      }
-    },
-    async linkAccount({ user }) {
-      if (user.id) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { emailVerified: new Date() },
-        }).catch(() => { })
-      }
-    },
-  },
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider && account.provider !== "credentials" && account.provider !== "credentials-password" && account.provider !== "credentials-otp") {
-        if (!user.email) return false
+      if (!account || CREDENTIAL_PROVIDER_IDS.includes(account.provider)) return true
+      if (!user.email) return false
 
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        })
+      const email = user.email
+      const dbUser = await prisma.user.findUnique({ where: { email } })
 
-        if (existingUser && !existingUser.emailVerified) {
-          await prisma.user.update({
-            where: { email: user.email },
-            data: { emailVerified: new Date() },
-          })
+      if (dbUser?.deletedAt) return "/login?error=AccountDeactivated"
+
+      const cookieStore = await cookies()
+      const modeCookie = cookieStore.get("__dc_auth_mode")?.value || "login"
+      const [mode, intent] = modeCookie.split(":")
+
+      // Audit Fix 3: Stale cookie cleanup (expire cookie after reading)
+      try {
+        cookieStore.delete("__dc_auth_mode")
+        cookieStore.delete("__dc_auth_name")
+      } catch {
+        // Ignore if immutable in context
+      }
+
+      if (dbUser && mode === "register") {
+        return "/login?error=OAuthAccountAlreadyExists"
+      }
+
+      if (!dbUser) {
+        if (mode !== "register") {
+          return "/login?error=OAuthAccountNotRegistered"
+        }
+        if (intent === "organization" && isPublicEmailDomain(email)) {
+          return "/register?error=WorkEmailRequired"
         }
       }
+
+      if (await isOAuthRateLimited(prisma, email)) {
+        return "/login?error=TooManyAttempts"
+      }
+
+      if (dbUser && !dbUser.emailVerified) {
+        await prisma.user.update({
+          where: { email },
+          data: { emailVerified: new Date() },
+        }).catch(() => {})
+      }
+
       return true
     },
-    async jwt({ token, user, account, trigger, session }) {
-      if (user || trigger === "update") {
-        if (user) {
-          token.id = user.id
-          token.email = user.email!
-          token.organizationId = (user as any).organizationId
-          token.employeeId = (user as any).employeeId
-          token.candidateId = (user as any).candidateId
-          token.role = (user as any).role
-          token.employeeStatus = (user as any).employeeStatus
-        }
+    async jwt({ token, user, account, trigger }) {
+      if (user) {
+        token.id = user.id
+        token.email = user.email!
+        token.organizationId = (user as any).organizationId
+        token.employeeId = (user as any).employeeId
+        token.candidateId = (user as any).candidateId
+        token.role = (user as any).role
+        token.employeeStatus = (user as any).employeeStatus
+        token.tokenVersion = (user as any).tokenVersion ?? 0
+      }
 
-        if (trigger === "update" && session) {
-          if (session.organizationId !== undefined) token.organizationId = session.organizationId
-          if (session.employeeId !== undefined) token.employeeId = session.employeeId
-          if (session.candidateId !== undefined) token.candidateId = session.candidateId
-          if (session.role !== undefined) token.role = session.role
-          if (session.employeeStatus !== undefined) token.employeeStatus = session.employeeStatus
+      if (trigger === "signUp" && user?.id) {
+        const cookieStore = await cookies()
+        const [, intent] = (cookieStore.get("__dc_auth_mode")?.value || "").split(":")
+        if (intent === "candidate") {
+          await prisma.candidate.create({ data: { userId: user.id } }).catch(() => {})
         }
+        await prisma.user.update({ where: { id: user.id }, data: { emailVerified: new Date() } }).catch(() => {})
       }
 
       if (token.id || token.sub) {
         const userId = (token.id || token.sub) as string
-        const dbUser = await prisma.user.findUnique({
-          where: { id: userId },
-          include: {
-            accounts: true,
-            employees: { take: 1, orderBy: { createdAt: "desc" } },
-            candidates: { take: 1, orderBy: { createdAt: "desc" } },
-          },
-        })
+        const currentTokenVersion = token.tokenVersion ?? 0
+        const cacheKey = `user:${userId}:${currentTokenVersion}`
 
-        if (dbUser) {
+        if (trigger === "update") {
+          jwtUserCache.delete(cacheKey)
+          jwtUserCache.delete(`user:${userId}`)
+        }
+
+        let dbUser = await jwtUserCache.get(cacheKey)
+        if (!dbUser) {
+          dbUser = await prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+              employees: { take: 1, orderBy: { createdAt: "desc" } },
+              candidates: { take: 1, orderBy: { createdAt: "desc" } },
+            },
+          })
+          if (dbUser) jwtUserCache.set(cacheKey, dbUser)
+        }
+
+        const isTokenVersionValid = dbUser && (dbUser.tokenVersion ?? 0) === currentTokenVersion
+
+        if (dbUser && !dbUser.deletedAt && isTokenVersionValid) {
           token.id = dbUser.id
           token.email = dbUser.email!
-          const isOAuthUser = dbUser.accounts.some((a) => a.provider !== "credentials" && a.provider !== "credentials-password" && a.provider !== "credentials-otp")
-          let verifiedDate = dbUser.emailVerified
-          if ((isOAuthUser || (account && account.provider !== "credentials-password" && account.provider !== "credentials-otp")) && !verifiedDate) {
-            verifiedDate = new Date()
-            await prisma.user.update({
-              where: { id: dbUser.id },
-              data: { emailVerified: verifiedDate },
-            }).catch(() => { })
-          }
+          token.tokenVersion = dbUser.tokenVersion ?? 0
 
           const emp = dbUser.employees[0]
           const cand = dbUser.candidates[0]
@@ -325,10 +325,14 @@ export const authOptions: NextAuthOptions = {
           token.candidateId = cand?.id || null
           token.role = emp?.role || null
           token.employeeStatus = emp?.status || null
-          token.emailVerified = verifiedDate ? verifiedDate.toISOString() : null
+          token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null
         } else {
+          jwtUserCache.delete(cacheKey)
+          jwtUserCache.delete(`user:${userId}`)
           token.id = null as any
+          token.sub = undefined
           token.email = null as any
+          token.tokenVersion = undefined
         }
       }
 
@@ -344,6 +348,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = (token.role as any) || null
         session.user.employeeStatus = (token.employeeStatus as any) || null
         session.user.emailVerified = (token.emailVerified as any) || null
+        session.user.tokenVersion = token.tokenVersion
       }
       return session
     },

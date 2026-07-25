@@ -3,9 +3,9 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Briefcase, Users, Video, UserCheck, Plus, ArrowUpRight, CheckCircle2, Clock } from "lucide-react"
+import { Briefcase, Users, Video, UserCheck, Plus, ArrowUpRight } from "lucide-react"
 
-export default function EnterpriseDashboardPage() {
+export function OrganizationDashboard() {
   const stats = [
     { title: "Active Job Listings", value: "12", change: "+3 this week", icon: Briefcase, color: "text-blue-500" },
     { title: "Screened Candidates", value: "148", change: "+24 today", icon: Users, color: "text-emerald-500" },
@@ -31,7 +31,7 @@ export default function EnterpriseDashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <Button asChild className="h-10">
-            <Link href="/dashboard/jobs/new">
+            <Link href="/jobs/new">
               <Plus className="h-4 w-4 mr-2" />
               Create Job Post
             </Link>
@@ -68,7 +68,7 @@ export default function EnterpriseDashboardPage() {
               <CardDescription>Latest candidates processed by AI Voice & Coding virtual compiler</CardDescription>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/candidates">
+              <Link href="/candidates">
                 View All <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
               </Link>
             </Button>
@@ -99,19 +99,19 @@ export default function EnterpriseDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Button variant="outline" className="w-full justify-start h-11" asChild>
-              <Link href="/dashboard/jobs">
+              <Link href="/jobs">
                 <Briefcase className="h-4 w-4 mr-2 text-primary" />
                 Manage Job Postings
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start h-11" asChild>
-              <Link href="/dashboard/interviews">
+              <Link href="/interviews">
                 <Video className="h-4 w-4 mr-2 text-purple-500" />
                 Launch Live Interview Room
               </Link>
             </Button>
             <Button variant="outline" className="w-full justify-start h-11" asChild>
-              <Link href="/dashboard/team">
+              <Link href="/team">
                 <UserCheck className="h-4 w-4 mr-2 text-amber-500" />
                 Review Pending Members
               </Link>

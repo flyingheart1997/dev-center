@@ -41,17 +41,20 @@ This roadmap outlines the implementation schedule, architectural steps, database
   * `Question`: Dynamic library of challenges containing isSystem flags, tags, language constraints, execution limits, difficulty levels, and unique organization-scoped names.
   * `Notification`: Stores unread/read in-app alerts with deep-linking support.
   * `EmployeeInvitation`: Tracks pending recruiter-sent email onboardings with expiration limits and initial scope assignments (`businessUnitId`, `branchId`, `departmentId`).
-  * `AuditLog`: Enterprise compliance audit trails tracking administrative actions, role updates, application status shifts, payload diff snapshots, and IP origins.
-  * NextAuth standard tables: `User`, `Account`, `Session`, `VerificationToken` linked via Prisma adapter. `User` links to both `Employee` and `Candidate` profiles.
+  * `AuditLog`: Enterprise compliance audit trails tracking administrative actions, role updates, session revocations, password changes (`AuditEvent`), payload diff snapshots, and IP origins.
+  * NextAuth standard tables: `User` (`tokenVersion`, `lastPasswordChangedAt`), `Account`, `Session` (`userAgent`, `ipAddress`, `revokedAt`), `VerificationToken` linked via Prisma adapter. `User` links to both `Employee` and `Candidate` profiles.
 
-### 2. Custom NextAuth.js Configuration & Strict 5-Stage Auth Lifecycle
+### 2. Custom NextAuth.js Configuration & Production Auth Architecture
 * Setup `auth.ts` under `lib/auth.ts` (Auth.js v5) & `proxy.ts`:
-  * **Unified Registration (`/register`)**: Email -> Password (with rate-limited `checkEmailExists` validation) or Social Auth (Google/GitHub).
+  * **Progressive 2-Step Registration (`/register`)**: Step 0 Intent Choice -> Step 1 Email check (`checkEmailExists`) & Social Auth -> Step 2 Credentials.
   * **Email Verification Gate**: Unverified users (`emailVerified === null`) strictly routed to `/verify-email`. Social users are auto-verified.
-  * **Intent-Based Onboarding (`/onboarding`)**: Users select Candidate or Organization path *after* verifying their email, ensuring no abandoned/dummy DB records.
+  * **Instant Token Invalidation (`tokenVersion`)**: Any password change, user deletion, status update, or security reset increments `tokenVersion`, invalidating active tokens globally.
+  * **Scalable `AuthCache` Layer (`lib/utils/auth-cache.ts`)**: 30-second TTL LRU memory cache (`AUTH_CACHE_TTL`) protecting DB connections from request bursts.
+  * **Soft Session Revocation & Active Device Management**: `Session` table soft-revokes tokens (`revokedAt = new Date()`) for remote device logouts without destroying audit logs.
+  * **Global 401 Client Interceptor**: Automatically triggers `signOut({ callbackUrl: "/login?error=SessionExpired" })` on 401 response without requiring manual refresh.
   * **Atomic Organization Setup (`/setup-org`)**: Org Founders configure their workspace. A single Prisma `$transaction` creates Organization, BusinessUnit, Branch, Department, and Employee records atomically.
-  * **Tokenized Employee Invites**: Employees and branch members join strictly via signed invitation tokens (`/register?inviteToken=xyz`).
-  * **Role-based Security & Cross-Workspace Protection**: Enforce scope-based endpoint protection (tRPC middleware). Strict proxy routing prevents Candidates from accessing the employer `/dashboard`, and prevents Organization Employees from accessing the `/candidate` portal.
+  * **Tokenized Employee Invites**: Employees join strictly via signed invitation tokens (`/register?inviteToken=xyz`).
+  * **Role-based Security & Cross-Workspace Protection**: Enforce scope-based endpoint protection (tRPC middleware). Strict proxy routing prevents Candidates from accessing employer `/dashboard`, and vice versa.
 * **Route Groups & Dual Left Sidebar Layout Architecture**:
   * **`(organization)` (B2B Employer & Admin Portal)**: Left Sidebar layout with Organization/Branch Switcher dropdown, and sections for *Overview*, *Hiring Pipeline* (Jobs, Candidates, Interviews), *Governance & CRM* (Approvals Queue, Talent Pools, Referrals), *Question Library*, and *Admin Settings* (Org Hierarchy, Audit Logs, Billing).
   * **`(candidate)` (B2C Candidate Portal & AI Prep Studio)**: Left Sidebar layout with Candidate Avatar, Profile Completion Bar, Prep Pro Badge, and sections for *My Career* (Hub, Applications, Saved Jobs), *AI Prep Studio* (Voice Mock, ATS Resume Review, Coding Arena), and *Billing/Settings*.

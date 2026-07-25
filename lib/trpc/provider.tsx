@@ -1,8 +1,9 @@
 "use client"
 
 import React, { useState } from "react"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { httpBatchLink } from "@trpc/client"
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query"
+import { httpBatchLink, TRPCClientError } from "@trpc/client"
+import { signOut } from "next-auth/react"
 import superjson from "superjson"
 import { trpc } from "./client"
 import { getAppUrl } from "@/lib/utils/url-utils"
@@ -12,10 +13,23 @@ function getBaseUrl() {
   return getAppUrl()
 }
 
+function handleGlobalUnauthorized(error: unknown) {
+  if (typeof window === "undefined") return
+  if (error instanceof TRPCClientError && (error.data?.code === "UNAUTHORIZED" || error.data?.httpStatus === 401)) {
+    signOut({ callbackUrl: "/login?error=SessionExpired" })
+  }
+}
+
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
+        queryCache: new QueryCache({
+          onError: handleGlobalUnauthorized,
+        }),
+        mutationCache: new MutationCache({
+          onError: handleGlobalUnauthorized,
+        }),
         defaultOptions: {
           queries: {
             staleTime: 5 * 1000,

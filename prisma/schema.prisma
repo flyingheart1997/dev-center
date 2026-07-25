@@ -22,6 +22,7 @@ enum EmployeeRole {
 enum EmployeeStatus {
   Active
   Pending_Approval
+  Suspended
 }
 
 enum JobStatus {
@@ -187,10 +188,22 @@ enum SubmissionStatus {
   Compilation_Error
 }
 
+enum AuditEvent {
+  PASSWORD_CHANGED
+  ROLE_CHANGED
+  SESSION_REVOKED
+  USER_DISABLED
+  MEMBER_INVITED
+  EMPLOYEE_STATUS_CHANGED
+  EMAIL_VERIFIED
+  ORGANIZATION_CREATED
+}
+
 model Organization {
   id                String               @id @default(uuid())
   name              String
-  domain            String?              @unique
+  domain            String               @unique
+  slug              String               @unique
   websiteUrl        String?
   linkedinUrl       String?
   logoUrl           String?
@@ -212,46 +225,68 @@ model Organization {
 }
 
 model BusinessUnit {
-  id             String               @id @default(uuid())
+  id             String   @id @default(uuid())
   organizationId String
   name           String
-  isActive       Boolean              @default(true)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  slug           String? // nullable — no uniqueness constraint yet, unused until a workspace switcher exists
+  isDefault      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branches       Branch[]
-  employees      Employee[]
-  jobs           Job[]
-  connections    JobBoardConnection[]
-  invitations    EmployeeInvitation[]
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branches         Branch[]
+  employees        Employee[]
+  jobs             Job[]
+  connections      JobBoardConnection[]
+  invitations      EmployeeInvitation[]
+  workspaceMembers EmployeeWorkspace[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
 }
 
+// Many-to-many Employee <-> BusinessUnit membership, for a future multi-workspace switcher.
+// Deliberately unpopulated for now — Employee.businessUnitId (above) remains the only
+// business-unit relationship actually read anywhere until that feature is built.
+model EmployeeWorkspace {
+  id             String       @id @default(uuid())
+  employeeId     String
+  businessUnitId String
+  role           EmployeeRole @default(Interviewer)
+  isActive       Boolean      @default(true)
+  assignedAt     DateTime     @default(now())
+
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  businessUnit BusinessUnit @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, businessUnitId])
+  @@index([employeeId])
+  @@index([businessUnitId])
+}
+
 model Branch {
-  id             String               @id @default(uuid())
+  id             String   @id @default(uuid())
   organizationId String
   businessUnitId String
   name           String
   code           String?
-  timezone       String               @default("UTC")
+  timezone       String   @default("UTC")
   country        String?
   city           String?
-  address        String?              @db.Text
-  isHeadOffice   Boolean              @default(false)
-  isActive       Boolean              @default(true)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  address        String?  @db.Text
+  isHeadOffice   Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  businessUnit   BusinessUnit         @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
-  departments    Department[]
-  employees      Employee[]
-  jobs           Job[]
-  connections    JobBoardConnection[]
-  invitations    EmployeeInvitation[]
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessUnit BusinessUnit         @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  departments  Department[]
+  employees    Employee[]
+  jobs         Job[]
+  connections  JobBoardConnection[]
+  invitations  EmployeeInvitation[]
 
   @@unique([businessUnitId, name])
   @@index([organizationId])
@@ -259,19 +294,19 @@ model Branch {
 }
 
 model Department {
-  id             String               @id @default(uuid())
+  id             String   @id @default(uuid())
   organizationId String
   branchId       String
   name           String
-  isActive       Boolean              @default(true)
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branch         Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  employees      Employee[]
-  jobs           Job[]
-  invitations    EmployeeInvitation[]
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+  jobs         Job[]
+  invitations  EmployeeInvitation[]
 
   @@unique([branchId, name])
   @@index([organizationId])
@@ -302,6 +337,7 @@ model Employee {
   offerApprovals       OfferApproval[]
   referredApplications Application[]         @relation("ReferredApplications")
   availabilitySlots    AvailabilitySlot[]
+  workspaces           EmployeeWorkspace[]
 
   @@unique([organizationId, userId])
   @@index([businessUnitId])
@@ -310,31 +346,31 @@ model Employee {
 }
 
 model Job {
-  id              String         @id @default(uuid())
+  id              String          @id @default(uuid())
   organizationId  String
   businessUnitId  String?
   branchId        String?
   departmentId    String?
   title           String
   description     String
-  status          JobStatus      @default(Draft)
-  employmentType  EmploymentType @default(Full_Time)
+  status          JobStatus       @default(Draft)
+  employmentType  EmploymentType  @default(Full_Time)
   experienceLevel ExperienceLevel @default(Mid)
   salaryMin       Float?
   salaryMax       Float?
-  currency        String         @default("USD")
+  currency        String          @default("USD")
   location        String?
-  remoteType      RemoteType     @default(Onsite)
-  isInternalOnly  Boolean        @default(false)
+  remoteType      RemoteType      @default(Onsite)
+  isInternalOnly  Boolean         @default(false)
   publishedAt     DateTime?
   closingDate     DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
-  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  businessUnit  BusinessUnit?  @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
-  branch        Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  department    Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessUnit      BusinessUnit?  @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  branch            Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  department        Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   rounds            JobRound[]
   applications      Application[]
   jobBoardPosts     JobBoardPost[]
@@ -350,17 +386,17 @@ model Job {
 }
 
 model JobRound {
-  id                  String                 @id @default(uuid())
+  id                  String                @id @default(uuid())
   jobId               String
   orderIndex          Int
   title               String
-  category            RoundCategory          @default(Technical)
-  durationMinutes     Int?                   @default(45)
-  createdAt           DateTime               @default(now())
-  updatedAt           DateTime               @updatedAt
+  category            RoundCategory         @default(Technical)
+  durationMinutes     Int?                  @default(45)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
   interviews          Interview[]
   interviewers        JobRoundInterviewer[]
-  currentApplications Application[]          @relation("CurrentRound")
+  currentApplications Application[]         @relation("CurrentRound")
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
@@ -368,7 +404,7 @@ model JobRound {
 }
 
 model JobRoundInterviewer {
-  id         String   @id @default(uuid())
+  id         String @id @default(uuid())
   roundId    String
   employeeId String
 
@@ -379,30 +415,29 @@ model JobRoundInterviewer {
 }
 
 model Candidate {
-  id                 String                @id @default(uuid())
-  userId             String?               @unique
+  id                 String    @id @default(uuid())
+  userId             String?   @unique
   experienceYears    Int?
   currentCompany     String?
   currentDesignation String?
   countryPermit      Boolean?
   criminalRecord     Boolean?
   isExistingEmployee Boolean?
-  consentGiven       Boolean               @default(false)
+  consentGiven       Boolean   @default(false)
   consentTimestamp   DateTime?
   tags               String[]
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  user               User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
-  applications       Application[]
-  skills             CandidateSkill[]
-  availabilitySlots  AvailabilitySlot[]
-  talentPools        TalentPoolCandidate[]
-  practiceSessions   PracticeSession[]
-  resumeReviews      ResumeReview[]
-  savedJobs          SavedJob[]
+  user              User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  applications      Application[]
+  skills            CandidateSkill[]
+  availabilitySlots AvailabilitySlot[]
+  talentPools       TalentPoolCandidate[]
+  practiceSessions  PracticeSession[]
+  resumeReviews     ResumeReview[]
+  savedJobs         SavedJob[]
 }
-
 
 model Application {
   id                      String               @id @default(uuid())
@@ -414,12 +449,12 @@ model Application {
   resumeUrl               String?
   expectedSalary          Float?
   currentSalary           Float?
-  noticePeriod            Int?                 // notice period in days
-  source                  String?              // e.g. "LinkedIn", "Indeed"
+  noticePeriod            Int? // notice period in days
+  source                  String? // e.g. "LinkedIn", "Indeed"
   rejectionReason         String?
   rejectionNotes          String?              @db.Text
-  formResponses           Json?                // Stores any extra custom form questions
-  screeningScore          Int?                 // Overall AI screening score (0-100)
+  formResponses           Json? // Stores any extra custom form questions
+  screeningScore          Int? // Overall AI screening score (0-100)
   allowCrossBranchSharing Boolean              @default(true)
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
@@ -452,14 +487,14 @@ model ScreeningResult {
   voiceTranscript  String?         @db.Text
   codingScore      Int?
   codingFeedback   String?         @db.Text
-  codingSourceTree Json?           // Candidate source code JSON
-  personalityScore Int?            // Personality/behavior trait matching
-  overallScore     Int?            // Aggregated AI score
+  codingSourceTree Json? // Candidate source code JSON
+  personalityScore Int? // Personality/behavior trait matching
+  overallScore     Int? // Aggregated AI score
   recommendation   Recommendation? @default(Hire)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  application      Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model Interview {
@@ -491,18 +526,18 @@ model Scorecard {
   id                  String          @id @default(uuid())
   interviewId         String
   interviewerId       String
-  technicalScore      Int?            // Technical skill rating (e.g. 1-5)
-  communicationScore  Int?            // Communication rating (e.g. 1-5)
-  problemSolvingScore Int?            // Problem solving rating (e.g. 1-5)
-  cultureScore        Int?            // Cultural fit rating (e.g. 1-5)
-  overallScore        Int?            // Aggregated rating (e.g. 1-5)
+  technicalScore      Int? // Technical skill rating (e.g. 1-5)
+  communicationScore  Int? // Communication rating (e.g. 1-5)
+  problemSolvingScore Int? // Problem solving rating (e.g. 1-5)
+  cultureScore        Int? // Cultural fit rating (e.g. 1-5)
+  overallScore        Int? // Aggregated rating (e.g. 1-5)
   recommendation      Recommendation?
   feedback            String?         @db.Text // Detailed notes
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
-  interview           Interview       @relation(fields: [interviewId], references: [id], onDelete: Cascade)
-  interviewer         Employee        @relation(fields: [interviewerId], references: [id], onDelete: Cascade)
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interviewer Employee  @relation(fields: [interviewerId], references: [id], onDelete: Cascade)
 
   @@unique([interviewId, interviewerId])
   @@index([interviewId])
@@ -548,14 +583,14 @@ model JobBoardConnection {
   businessUnitId String?
   branchId       String?
   provider       JobBoardProvider
-  credentials    Json             // Encrypted OAuth credentials or API keys
+  credentials    Json // Encrypted OAuth credentials or API keys
   status         ConnectionStatus @default(Connected)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  businessUnit   BusinessUnit?    @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
-  branch         Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessUnit BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  branch       Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, provider, businessUnitId, branchId])
   @@index([businessUnitId])
@@ -566,8 +601,8 @@ model JobBoardPost {
   id            String             @id @default(uuid())
   jobId         String
   provider      JobBoardProvider
-  externalJobId String?            // Unique ID returned by external API
-  url           String?            // External URL to the post
+  externalJobId String? // Unique ID returned by external API
+  url           String? // External URL to the post
   status        JobBoardPostStatus @default(Pending)
   errorMessage  String?            @db.Text
   postedAt      DateTime?
@@ -582,9 +617,9 @@ model JobBoardPost {
 model Plan {
   id               String         @id @default(uuid())
   name             String         @unique // "Free", "Pro", "Enterprise"
-  price            Int            // Price in cents (e.g. 0, 14900)
-  activeJobsLimit  Int            // e.g. 2 for Free, 15 for Pro, -1 for unlimited
-  aiCreditsLimit   Int            // e.g. 10 for Free, 250 for Pro, -1 for unlimited
+  price            Int // Price in cents (e.g. 0, 14900)
+  activeJobsLimit  Int // e.g. 2 for Free, 15 for Pro, -1 for unlimited
+  aiCreditsLimit   Int // e.g. 10 for Free, 250 for Pro, -1 for unlimited
   maxBusinessUnits Int            @default(1)
   maxBranches      Int            @default(1)
   maxEmployees     Int            @default(5)
@@ -594,43 +629,43 @@ model Plan {
 }
 
 model Subscription {
-  id                     String       @id @default(uuid())
-  organizationId         String       @unique
-  planId                 String       // Required relation to Plan
-  stripeCustomerId       String?      @unique
-  stripeSubscriptionId   String?      @unique
+  id                     String    @id @default(uuid())
+  organizationId         String    @unique
+  planId                 String // Required relation to Plan
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
   stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  plan                   Plan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id], onDelete: Restrict)
 }
 
 model Question {
-  id             String           @id @default(uuid())
-  organizationId String           // required, "system" for defaults
-  title          String
-  description    String           @db.Text
-  category       QuestionCategory @default(Coding)
-  difficulty     Difficulty       @default(Medium)
-  tags           String[]
-  languages      Language[]
-  timeLimit      Int?
-  memoryLimit    Int?
-  starterCode    Json?
-  solutionCode   Json?
-  hint           Json?
+  id              String           @id @default(uuid())
+  organizationId  String // required, "system" for defaults
+  title           String
+  description     String           @db.Text
+  category        QuestionCategory @default(Coding)
+  difficulty      Difficulty       @default(Medium)
+  tags            String[]
+  languages       Language[]
+  timeLimit       Int?
+  memoryLimit     Int?
+  starterCode     Json?
+  solutionCode    Json?
+  hint            Json?
   timeComplexity  String?
   spaceComplexity String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  testCaseList   QuestionTestCase[]
-  submissions    QuestionSubmission[]
-  interviews     InterviewQuestion[]
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  testCaseList QuestionTestCase[]
+  submissions  QuestionSubmission[]
+  interviews   InterviewQuestion[]
 
   @@unique([organizationId, title]) // Enforces unique question names per organization/system scope
   @@index([organizationId])
@@ -655,26 +690,27 @@ model Notification {
 }
 
 model EmployeeInvitation {
-  id             String        @id @default(uuid())
+  id             String       @id @default(uuid())
   email          String
-  role           EmployeeRole  @default(Interviewer)
-  token          String        @unique
+  role           EmployeeRole @default(Interviewer)
+  token          String       @unique
   organizationId String
   businessUnitId String?
   branchId       String?
   departmentId   String?
   expiresAt      DateTime
-  createdAt      DateTime      @default(now())
+  createdAt      DateTime     @default(now())
 
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
-  branch         Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  department     Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessUnit BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  branch       Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  department   Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   @@index([email])
   @@index([businessUnitId])
   @@index([branchId])
   @@index([departmentId])
+  @@index([expiresAt])
 }
 
 // NextAuth standard models
@@ -683,6 +719,10 @@ model User {
   name                  String?
   email                 String?                @unique @db.Citext
   emailVerified         DateTime?
+  hashedPassword        String?
+  tokenVersion          Int                    @default(0)
+  lastPasswordChangedAt DateTime?
+  deletedAt             DateTime?
   image                 String?
   phone                 String?
   linkedinUrl           String?
@@ -696,6 +736,7 @@ model User {
   candidates            Candidate[] // A user can have one or more Candidate profiles
   candidateSubscription CandidateSubscription?
   notifications         Notification[]
+  auditLogs             AuditLog[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
 }
@@ -717,14 +758,21 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
+  id           String    @id @default(cuid())
+  sessionToken String    @unique
   userId       String
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+  revokedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -734,6 +782,8 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+  @@index([identifier])
+  @@index([expires])
 }
 
 model QuestionTestCase {
@@ -747,7 +797,7 @@ model QuestionTestCase {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([questionId])
   @@index([isHidden])
@@ -761,18 +811,18 @@ model QuestionSubmission {
   language        Language
   sourceCode      String           @db.Text
   status          SubmissionStatus
-  runtime         Float?           // AI-estimated execution time (ms)
-  memory          Float?           // AI-estimated memory usage (MB)
-  score           Float?           // Calculated score (0-100 or weighted)
+  runtime         Float? // AI-estimated execution time (ms)
+  memory          Float? // AI-estimated memory usage (MB)
+  score           Float? // Calculated score (0-100 or weighted)
   passedTestCases Int              @default(0)
   totalTestCases  Int              @default(0)
-  testCaseResults Json?            // Detailed list of passed/failed test cases
+  testCaseResults Json? // Detailed list of passed/failed test cases
   compilerOutput  String?          @db.Text // AI compiler errors / logs
   createdAt       DateTime         @default(now())
 
-  question        Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  application     Application?     @relation(fields: [applicationId], references: [id], onDelete: SetNull)
-  interview       Interview?       @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+  question    Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  interview   Interview?   @relation(fields: [interviewId], references: [id], onDelete: SetNull)
 
   @@index([questionId])
   @@index([applicationId])
@@ -781,80 +831,84 @@ model QuestionSubmission {
 }
 
 model InterviewQuestion {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   interviewId String
   questionId  String
   order       Int
-  maxScore    Float    @default(100)
-  score       Float?   // Actual score given by AI or interviewer
-  notes       String?  @db.Text // Interviewer's notes for this question
+  maxScore    Float   @default(100)
+  score       Float? // Actual score given by AI or interviewer
+  notes       String? @db.Text // Interviewer's notes for this question
 
-  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
-  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question  Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([interviewId, questionId])
   @@index([questionId])
 }
 
 model AuditLog {
-  id             String   @id @default(uuid())
-  organizationId String
-  employeeId     String
-  action         String   // e.g. "JOB_CREATED", "ROLE_UPDATED"
-  entityName     String   // e.g. "Job", "Application"
+  id             String      @id @default(uuid())
+  organizationId String?
+  employeeId     String?
+  userId         String?
+  event          AuditEvent?
+  action         String // e.g. "JOB_CREATED", "ROLE_UPDATED"
+  entityName     String // e.g. "Job", "Application"
   entityId       String
   oldValues      Json?
   newValues      Json?
   ipAddress      String?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime    @default(now())
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee?     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([employeeId])
+  @@index([userId])
   @@index([createdAt])
 }
 
 model JobApproval {
-  id          String         @id @default(uuid())
-  jobId       String
-  approverId  String
-  status      ApprovalStatus @default(Pending)
-  feedback    String?        @db.Text
-  approvedAt  DateTime?
+  id         String         @id @default(uuid())
+  jobId      String
+  approverId String
+  status     ApprovalStatus @default(Pending)
+  feedback   String?        @db.Text
+  approvedAt DateTime?
 
-  job         Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  approver    Employee       @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  job      Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  approver Employee @relation(fields: [approverId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, approverId])
   @@index([approverId])
 }
 
 model Offer {
-  id              String          @id @default(uuid())
-  applicationId   String          @unique
+  id              String      @id @default(uuid())
+  applicationId   String      @unique
   offeredSalary   Float
-  currency        String          @default("USD")
+  currency        String      @default("USD")
   targetStartDate DateTime
-  status          OfferStatus     @default(Draft)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  status          OfferStatus @default(Draft)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
-  application     Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  approvals       OfferApproval[]
+  application Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  approvals   OfferApproval[]
 }
 
 model OfferApproval {
-  id          String         @id @default(uuid())
-  offerId     String
-  approverId  String
-  status      ApprovalStatus @default(Pending)
-  feedback    String?        @db.Text
-  approvedAt  DateTime?
+  id         String         @id @default(uuid())
+  offerId    String
+  approverId String
+  status     ApprovalStatus @default(Pending)
+  feedback   String?        @db.Text
+  approvedAt DateTime?
 
-  offer       Offer          @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  approver    Employee       @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  offer    Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  approver Employee @relation(fields: [approverId], references: [id], onDelete: Cascade)
 
   @@unique([offerId, approverId])
   @@index([approverId])
@@ -871,22 +925,22 @@ model RescheduleRequest {
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 
-  interview     Interview             @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
 
   @@index([interviewId])
 }
 
 model AvailabilitySlot {
-  id          String     @id @default(uuid())
+  id          String   @id @default(uuid())
   employeeId  String?
   candidateId String?
   startTime   DateTime
   endTime     DateTime
-  isBooked    Boolean    @default(false)
-  createdAt   DateTime   @default(now())
+  isBooked    Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
-  employee    Employee?  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  candidate   Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  employee  Employee?  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  candidate Candidate? @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
   @@index([candidateId])
@@ -894,28 +948,28 @@ model AvailabilitySlot {
 }
 
 model TalentPool {
-  id             String                @id @default(uuid())
+  id             String   @id @default(uuid())
   organizationId String
   name           String
-  description    String?               @db.Text
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  description    String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  candidates     TalentPoolCandidate[]
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  candidates   TalentPoolCandidate[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
 }
 
 model TalentPoolCandidate {
-  id           String     @id @default(uuid())
+  id           String   @id @default(uuid())
   talentPoolId String
   candidateId  String
-  addedAt      DateTime   @default(now())
+  addedAt      DateTime @default(now())
 
-  talentPool   TalentPool @relation(fields: [talentPoolId], references: [id], onDelete: Cascade)
-  candidate    Candidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  talentPool TalentPool @relation(fields: [talentPoolId], references: [id], onDelete: Cascade)
+  candidate  Candidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@unique([talentPoolId, candidateId])
   @@index([talentPoolId])
@@ -925,60 +979,60 @@ model TalentPoolCandidate {
 model CandidatePlan {
   id                  String                  @id @default(uuid())
   name                String                  @unique // "Free", "Prep Pro", "Prep Unlimited"
-  price               Int                     // Price in cents
-  mockInterviewsLimit Int                     // e.g. 2 for Free, 20 for Pro, -1 for Unlimited
-  codingPracticeLimit Int                     // e.g. 5 for Free, 100 for Pro, -1 for Unlimited
-  resumeReviewsLimit  Int                     // e.g. 1 for Free, 10 for Pro, -1 for Unlimited
+  price               Int // Price in cents
+  mockInterviewsLimit Int // e.g. 2 for Free, 20 for Pro, -1 for Unlimited
+  codingPracticeLimit Int // e.g. 5 for Free, 100 for Pro, -1 for Unlimited
+  resumeReviewsLimit  Int // e.g. 1 for Free, 10 for Pro, -1 for Unlimited
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   subscriptions       CandidateSubscription[]
 }
 
 model CandidateSubscription {
-  id                     String        @id @default(uuid())
-  userId                 String        @unique
+  id                     String    @id @default(uuid())
+  userId                 String    @unique
   planId                 String
-  stripeCustomerId       String?       @unique
-  stripeSubscriptionId   String?       @unique
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
   stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  user                   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan                   CandidatePlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan CandidatePlan @relation(fields: [planId], references: [id], onDelete: Restrict)
 }
 
 model PracticeSession {
-  id              String    @id @default(uuid())
+  id              String   @id @default(uuid())
   candidateId     String
-  title           String    // e.g. "Mock System Design Practice"
-  roleCategory    String    // e.g. "Backend Engineer"
-  overallScore    Int?      // AI Score (0-100)
+  title           String // e.g. "Mock System Design Practice"
+  roleCategory    String // e.g. "Backend Engineer"
+  overallScore    Int? // AI Score (0-100)
   voiceScore      Int?
-  transcript      String?   @db.Text
-  aiFeedback      String?   @db.Text
-  improvementTips Json?     // Actionable feedback from Gemini
-  createdAt       DateTime  @default(now())
+  transcript      String?  @db.Text
+  aiFeedback      String?  @db.Text
+  improvementTips Json? // Actionable feedback from Gemini
+  createdAt       DateTime @default(now())
 
-  candidate       Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
 }
 
 model ResumeReview {
-  id                String    @id @default(uuid())
+  id                String   @id @default(uuid())
   candidateId       String
-  targetRole        String    // e.g. "Full Stack Developer"
+  targetRole        String // e.g. "Full Stack Developer"
   resumeUrl         String?
-  atsScore          Int?      // AI ATS score (0-100)
-  keywordMatchScore Int?      // Keyword match score
-  strengths         Json?     // Highlighted strengths
-  improvements      Json?     // Suggested improvements
-  missingKeywords   String[]  // Missing keywords list
-  createdAt         DateTime  @default(now())
+  atsScore          Int? // AI ATS score (0-100)
+  keywordMatchScore Int? // Keyword match score
+  strengths         Json? // Highlighted strengths
+  improvements      Json? // Suggested improvements
+  missingKeywords   String[] // Missing keywords list
+  createdAt         DateTime @default(now())
 
-  candidate         Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
 
   @@index([candidateId])
 }
@@ -989,8 +1043,8 @@ model SavedJob {
   jobId       String
   savedAt     DateTime @default(now())
 
-  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([candidateId, jobId])
   @@index([candidateId])
@@ -1004,4 +1058,5 @@ model RateLimit {
   expiresAt DateTime
 
   @@index([key])
+  @@index([expiresAt])
 }

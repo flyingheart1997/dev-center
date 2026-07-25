@@ -67,7 +67,7 @@ export function LoginEmailStep({ formState }: LoginEmailStepProps) {
         )}
       </Button>
 
-      <SocialAuthButtons providers={["google", "github", "linkedin"]} />
+      <SocialAuthButtons providers={["google", "github", "linkedin"]} mode="login" />
     </div>
   )
 }

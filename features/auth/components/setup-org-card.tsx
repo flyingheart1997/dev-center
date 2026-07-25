@@ -52,18 +52,22 @@ export function SetupOrgCard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="org-domain" className="text-sm font-medium text-foreground">
-                Corporate Domain (Optional)
+                Corporate Domain <span className="text-destructive">*</span>
               </Label>
               <Controller
                 name="domain"
                 control={form.control}
-                render={({ field }) => (
-                  <Input
-                    {...field}
-                    id="org-domain"
-                    placeholder="acme.com"
-                    className="h-11"
-                  />
+                render={({ field, fieldState }) => (
+                  <div>
+                    <Input
+                      {...field}
+                      id="org-domain"
+                      placeholder="acme.com"
+                      className="h-11"
+                      aria-invalid={fieldState.invalid}
+                    />
+                    {fieldState.error && <p className="text-xs text-destructive mt-1">{fieldState.error.message}</p>}
+                  </div>
                 )}
               />
             </div>
