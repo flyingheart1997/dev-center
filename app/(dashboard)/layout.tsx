@@ -1,18 +1,16 @@
 import React from "react"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { OrganizationDashboard } from "@/features/organization/components/organization-dashboard"
-import { CandidateDashboard } from "@/features/candidate-prep/components/candidate-dashboard"
+import { DashboardLayout } from "@/features/dashboard/components/dashboard-layout"
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function MainDashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)
   const isOrgUser = !!(session?.user?.organizationId || session?.user?.employeeId)
-
-  const Shell = isOrgUser ? OrganizationDashboard : CandidateDashboard
+  const dashboardType: "organization" | "candidate" = isOrgUser ? "organization" : "candidate"
 
   return (
     <main className="flex h-screen w-screen overflow-hidden">
-      <Shell>{children}</Shell>
+      <DashboardLayout dashboardType={dashboardType}>{children}</DashboardLayout>
     </main>
   )
 }

@@ -27,7 +27,7 @@ export const AlertMessage = ({ message }: { message: { text: string; type: Messa
       )}
     >
       <Icon className="h-4 w-4 shrink-0 mt-0.5" />
-      <p className="text-center">{message.text}</p>
+      <p className="text-start">{message.text}</p>
     </div>
   )
 }

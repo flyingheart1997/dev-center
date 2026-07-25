@@ -4,11 +4,6 @@ import { router, publicProcedure, protectedProcedure } from "../trpc"
 import { TRPCError } from "@trpc/server"
 import { EmployeeRole, EmployeeStatus } from "@/types/enums"
 import { getAppUrl } from "@/lib/utils/url-utils"
-import { sendTransactionalEmail } from "@/lib/resend"
-import { renderEmailVerificationTemplate } from "@/components/templates/email-templates/email-verification-template"
-import { renderLoginOtpTemplate } from "@/components/templates/email-templates/login-otp-template"
-import { renderPasswordResetTemplate } from "@/components/templates/email-templates/password-reset-template"
-import { renderInviteEmailTemplate } from "@/components/templates/email-templates/invite-email-template"
 import {
   registerUserSchema,
   forgotPasswordSchema,
@@ -19,68 +14,18 @@ import {
 import { checkRateLimit } from "@/features/auth/utils/rate-limit"
 import { generateAndSaveToken } from "@/features/auth/utils/token-utils"
 import { isPublicEmailDomain } from "@/features/auth/utils/domain-utils"
-import type { PrismaClient } from "@/prisma/generated/client"
-
-const VERIFY_EMAIL_PREFIX = "verify-email"
-
-function buildVerifyIdentifier(intent: "candidate" | "organization", email: string) {
-  return `${VERIFY_EMAIL_PREFIX}:${intent}:${email}`
-}
-
-function parseVerifyIdentifier(identifier: string): { intent: "candidate" | "organization"; email: string } | null {
-  const parts = identifier.split(":")
-  if (parts.length !== 3 || parts[0] !== VERIFY_EMAIL_PREFIX) return null
-  const [, intent, email] = parts
-  if (intent !== "candidate" && intent !== "organization") return null
-  return { intent, email }
-}
-
-function requireOrgAdmin(user: { role?: string | null; organizationId?: string | null }, organizationId?: string) {
-  if (!user.organizationId || (organizationId && user.organizationId !== organizationId)) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "You do not belong to this organization." })
-  }
-  if (user.role !== EmployeeRole.OWNER && user.role !== EmployeeRole.GLOBAL_ADMIN) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Only an organization owner or admin can manage invitations." })
-  }
-}
-
-async function acceptEmployeeInvitation(
-  prisma: PrismaClient,
-  { token, email, userId }: { token: string; email: string; userId: string }
-) {
-  const invite = await prisma.employeeInvitation.findUnique({ where: { token } })
-
-  if (!invite || invite.email.toLowerCase() !== email.toLowerCase()) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid invitation." })
-  }
-
-  if (invite.expiresAt < new Date()) {
-    await prisma.employeeInvitation.delete({ where: { id: invite.id } }).catch(() => {})
-    throw new TRPCError({ code: "BAD_REQUEST", message: "This invitation has expired." })
-  }
-
-  const existingEmployee = await prisma.employee.findFirst({ where: { userId } })
-  if (existingEmployee) {
-    throw new TRPCError({ code: "CONFLICT", message: "You are already registered as an employee of an organization." })
-  }
-
-  const [employee] = await prisma.$transaction([
-    prisma.employee.create({
-      data: {
-        organizationId: invite.organizationId,
-        businessUnitId: invite.businessUnitId,
-        branchId: invite.branchId,
-        departmentId: invite.departmentId,
-        userId,
-        role: invite.role,
-        status: EmployeeStatus.ACTIVE,
-      },
-    }),
-    prisma.employeeInvitation.delete({ where: { id: invite.id } }),
-  ])
-
-  return employee
-}
+import {
+  VERIFY_EMAIL_PREFIX,
+  buildVerifyIdentifier,
+  parseVerifyIdentifier,
+} from "@/features/auth/utils/verify-identifier"
+import {
+  sendVerificationEmailService,
+  sendLoginOtpEmailService,
+  sendPasswordResetEmailService,
+  sendInviteEmailService,
+} from "@/features/auth/services/auth-email.service"
+import { requireOrgAdmin, acceptEmployeeInvitation } from "@/features/auth/services/invite.service"
 
 export const authRouter = router({
   getSession: publicProcedure.query(async ({ ctx }) => {
@@ -91,7 +36,7 @@ export const authRouter = router({
     .input(z.object({ email: z.string().email("Invalid email address") }))
     .query(async ({ ctx, input }) => {
       const email = input.email.trim().toLowerCase()
-      await checkRateLimit(ctx.prisma, `check-email:${email}`, 5, 15 * 60 * 1000)
+      await checkRateLimit(ctx.prisma, `check-email:${email}`, 20, 15 * 60 * 1000)
       const existingUser = await ctx.prisma.user.findUnique({ where: { email } })
       return { exists: !!existingUser }
     }),
@@ -110,10 +55,7 @@ export const authRouter = router({
         })
       }
 
-      const existingUser = await ctx.prisma.user.findUnique({
-        where: { email },
-      })
-
+      const existingUser = await ctx.prisma.user.findUnique({ where: { email } })
       if (existingUser) {
         throw new TRPCError({
           code: "CONFLICT",
@@ -123,14 +65,25 @@ export const authRouter = router({
 
       const hashedPassword = await bcrypt.hash(input.password, 12)
 
-      const user = await ctx.prisma.user.create({
-        data: {
-          name: input.name,
-          email,
-          phone: input.phone || null,
-          hashedPassword,
-        },
-      })
+      let user
+      try {
+        user = await ctx.prisma.user.create({
+          data: {
+            name: input.name,
+            email,
+            phone: input.phone || null,
+            hashedPassword,
+          },
+        })
+      } catch (err: any) {
+        if (err?.code === "P2002") {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "An account with this email address already exists.",
+          })
+        }
+        throw err
+      }
 
       const identifier = buildVerifyIdentifier(input.intent, email)
       const token = await generateAndSaveToken(ctx.prisma, identifier, 24 * 60 * 60 * 1000)
@@ -141,22 +94,16 @@ export const authRouter = router({
         verifyLink += `&inviteToken=${encodeURIComponent(input.inviteToken)}`
       }
 
-      console.log("==================================================")
-      console.log(`🔑 DEV VERIFICATION LINK FOR NEW USER [${email}]:`)
-      console.log(verifyLink)
-      console.log("==================================================")
-
-      const html = renderEmailVerificationTemplate({ userName: input.name, verifyLink })
-      await sendTransactionalEmail({
-        to: email,
-        subject: "Verify your Dev-Center Account Email",
-        html,
-        idempotencyKey: `verify-email/${user.id}-${Date.now()}`,
+      const emailResult = await sendVerificationEmailService({
+        email,
+        userName: input.name,
+        verifyLink,
+        userId: user.id,
       })
 
       return {
         success: true,
-        message: "Account created successfully! Please check your email to verify your account.",
+        message: emailResult.message,
         userId: user.id,
       }
     }),
@@ -193,9 +140,10 @@ export const authRouter = router({
 
       const slug = domain.split(".")[0].toLowerCase().replace(/[^a-z0-9-]/g, "-")
 
-      const currentEmployee = await ctx.prisma.employee.findFirst({
-        where: { userId },
-      })
+      const [currentEmployee, currentCandidate] = await Promise.all([
+        ctx.prisma.employee.findFirst({ where: { userId } }),
+        ctx.prisma.candidate.findUnique({ where: { userId } }),
+      ])
 
       if (currentEmployee) {
         throw new TRPCError({
@@ -203,10 +151,6 @@ export const authRouter = router({
           message: "You are already registered as an employee of an organization.",
         })
       }
-
-      const currentCandidate = await ctx.prisma.candidate.findUnique({
-        where: { userId },
-      })
 
       if (currentCandidate) {
         throw new TRPCError({
@@ -231,6 +175,7 @@ export const authRouter = router({
           data: {
             organizationId: org.id,
             name: "Main Operations",
+            isDefault: true,
           },
         })
 
@@ -303,32 +248,8 @@ export const authRouter = router({
         }),
       ])
 
-      console.log("==================================================")
-      console.log(`🔑 DEV LOGIN OTP CODE FOR [${email}]: ${otpCode}`)
-      console.log("==================================================")
-
-      const html = renderLoginOtpTemplate({ otpCode })
-      const res = await sendTransactionalEmail({
-        to: email,
-        subject: `${otpCode} is your Dev-Center Login Code`,
-        html,
-        idempotencyKey: `login-otp/${user.id}-${Date.now()}`,
-      })
-
-      if (!res.success) {
-        if (res.error?.includes("only send testing emails") || res.error?.includes("resend.com/domains")) {
-          return {
-            success: true,
-            message: `OTP Code generated! (Resend Sandbox Mode: Your 6-digit OTP code [${otpCode}] is printed in your server terminal console).`,
-          }
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to send email: ${res.error}`,
-        })
-      }
-
-      return { success: true, message: "A 6-digit OTP code has been sent to your email." }
+      const result = await sendLoginOtpEmailService({ email, otpCode, userId: user.id })
+      return { success: true, message: result.message }
     }),
 
   verifyEmailToken: publicProcedure
@@ -407,8 +328,6 @@ export const authRouter = router({
         })
       }
 
-      // Recover the original intent from any prior (possibly expired) token row for this
-      // email, so a resend doesn't silently downgrade an organization signup to candidate.
       const priorRecord = await ctx.prisma.verificationToken.findFirst({
         where: { identifier: { startsWith: VERIFY_EMAIL_PREFIX, endsWith: `:${email}` } },
       })
@@ -420,37 +339,14 @@ export const authRouter = router({
       const appUrl = getAppUrl()
       const verifyLink = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`
 
-      console.log("==================================================")
-      console.log(`🔑 DEV VERIFICATION LINK FOR [${email}]:`)
-      console.log(verifyLink)
-      console.log("==================================================")
-
-      const html = renderEmailVerificationTemplate({
+      const result = await sendVerificationEmailService({
+        email,
         userName: user.name || "User",
         verifyLink,
+        userId: user.id,
       })
 
-      const res = await sendTransactionalEmail({
-        to: email,
-        subject: "Verify your Dev-Center Account Email",
-        html,
-        idempotencyKey: `resend-verify-email/${user.id}-${Date.now()}`,
-      })
-
-      if (!res.success) {
-        if (res.error?.includes("only send testing emails") || res.error?.includes("resend.com/domains")) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Resend Sandbox Mode restricts email sending to the registered account owner (flyingmyheart1997@gmail.com). For testing, the verification link has been printed in your server terminal console!",
-          })
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to send email: ${res.error}`,
-        })
-      }
-
-      return { success: true, message: "A new verification email has been sent. Please check your inbox." }
+      return { success: true, message: result.message || "A new verification email has been sent. Please check your inbox." }
     }),
 
   requestPasswordReset: publicProcedure
@@ -462,7 +358,7 @@ export const authRouter = router({
 
       const user = await ctx.prisma.user.findUnique({ where: { email } })
 
-      if (!user) {
+      if (!user || user.deletedAt) {
         return { success: true, message: "If an account exists with this email, password reset instructions have been sent." }
       }
 
@@ -471,22 +367,14 @@ export const authRouter = router({
       const appUrl = getAppUrl()
       const resetLink = `${appUrl}/reset-password?token=${token}&email=${encodeURIComponent(email)}`
 
-      const html = renderPasswordResetTemplate({ userName: user.name || undefined, resetLink })
-      const res = await sendTransactionalEmail({
-        to: email,
-        subject: "Reset your Dev-Center Password",
-        html,
-        idempotencyKey: `reset-password/${user.id}-${Date.now()}`,
+      const result = await sendPasswordResetEmailService({
+        email,
+        userName: user.name || "User",
+        resetLink,
+        userId: user.id,
       })
 
-      if (!res.success) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: res.error || "Failed to send reset email",
-        })
-      }
-
-      return { success: true, message: "Password reset instructions have been sent to your email." }
+      return { success: true, message: result.message || "Password reset instructions have been sent to your email." }
     }),
 
   resetPassword: publicProcedure
@@ -570,23 +458,14 @@ export const authRouter = router({
       const appUrl = getAppUrl()
       const inviteLink = `${appUrl}/register?inviteToken=${token}`
 
-      const html = renderInviteEmailTemplate({
+      await sendInviteEmailService({
+        to: email,
         organizationName: organization.name,
         role: input.role,
         inviterName: ctx.session.user.name || "A teammate",
         inviteLink,
+        organizationId,
       })
-
-      const res = await sendTransactionalEmail({
-        to: email,
-        subject: `You've been invited to join ${organization.name} on Dev-Center`,
-        html,
-        idempotencyKey: `invite-employee/${organizationId}-${email}-${Date.now()}`,
-      })
-
-      if (!res.success) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Failed to send invite email: ${res.error}` })
-      }
 
       return { success: true, message: `Invitation sent to ${email}.` }
     }),

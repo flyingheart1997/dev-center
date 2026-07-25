@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Briefcase, Users, Video, UserCheck, Plus, ArrowUpRight } from "lucide-react"
 
-export function OrganizationDashboardHome() {
+export function OrganizationDashboard() {
   const stats = [
     { title: "Active Job Listings", value: "12", change: "+3 this week", icon: Briefcase, color: "text-blue-500" },
     { title: "Screened Candidates", value: "148", change: "+24 today", icon: Users, color: "text-emerald-500" },
