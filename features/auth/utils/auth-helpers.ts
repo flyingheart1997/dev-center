@@ -21,6 +21,7 @@ export function buildSessionUserPayload(user: {
   email: string
   name: string | null
   image: string | null
+  tokenVersion?: number
   employees: Array<{ id: string; organizationId: string; role: any; status: any }>
   candidates: Array<{ id: string }>
 }) {
@@ -32,6 +33,7 @@ export function buildSessionUserPayload(user: {
     email: user.email,
     name: user.name,
     image: user.image,
+    tokenVersion: user.tokenVersion ?? 0,
     organizationId: activeEmployee?.organizationId || null,
     employeeId: activeEmployee?.id || null,
     candidateId: activeCandidate?.id || null,

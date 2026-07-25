@@ -187,6 +187,17 @@ enum SubmissionStatus {
   Compilation_Error
 }
 
+enum AuditEvent {
+  PASSWORD_CHANGED
+  ROLE_CHANGED
+  SESSION_REVOKED
+  USER_DISABLED
+  MEMBER_INVITED
+  EMPLOYEE_STATUS_CHANGED
+  EMAIL_VERIFIED
+  ORGANIZATION_CREATED
+}
+
 model Organization {
   id                String               @id @default(uuid())
   name              String
@@ -708,6 +719,8 @@ model User {
   email                 String?                @unique @db.Citext
   emailVerified         DateTime?
   hashedPassword        String?
+  tokenVersion          Int                    @default(0)
+  lastPasswordChangedAt DateTime?
   deletedAt             DateTime?
   image                 String?
   phone                 String?
@@ -722,6 +735,7 @@ model User {
   candidates            Candidate[] // A user can have one or more Candidate profiles
   candidateSubscription CandidateSubscription?
   notifications         Notification[]
+  auditLogs             AuditLog[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
 }
@@ -747,11 +761,17 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
+  id           String    @id @default(cuid())
+  sessionToken String    @unique
   userId       String
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+  revokedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -826,22 +846,26 @@ model InterviewQuestion {
 }
 
 model AuditLog {
-  id             String   @id @default(uuid())
-  organizationId String
-  employeeId     String
+  id             String      @id @default(uuid())
+  organizationId String?
+  employeeId     String?
+  userId         String?
+  event          AuditEvent?
   action         String // e.g. "JOB_CREATED", "ROLE_UPDATED"
   entityName     String // e.g. "Job", "Application"
   entityId       String
   oldValues      Json?
   newValues      Json?
   ipAddress      String?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime    @default(now())
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee?     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([employeeId])
+  @@index([userId])
   @@index([createdAt])
 }
 

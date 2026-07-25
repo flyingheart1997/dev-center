@@ -23,7 +23,7 @@ export const router = t.router
 export const publicProcedure = t.procedure
 
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
-  if (!ctx.session || !ctx.session.user) {
+  if (!ctx.session || !ctx.session.user || !ctx.session.user.id) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "You must be logged in to access this resource.",
@@ -34,6 +34,13 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Please verify your email address before continuing.",
+    })
+  }
+
+  if (ctx.session.user.employeeStatus === "PENDING_APPROVAL" || ctx.session.user.employeeStatus === "SUSPENDED") {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Your organization access is pending approval or suspended.",
     })
   }
 

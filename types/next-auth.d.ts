@@ -14,6 +14,7 @@ declare module "next-auth" {
       role?: EmployeeRole | string | null
       employeeStatus?: EmployeeStatus | string | null
       emailVerified?: Date | string | null
+      tokenVersion?: number
     } & DefaultSession["user"]
   }
 
@@ -28,6 +29,7 @@ declare module "next-auth" {
     role?: EmployeeRole | string | null
     employeeStatus?: EmployeeStatus | string | null
     emailVerified?: Date | string | null
+    tokenVersion?: number
   }
 }
 
@@ -41,5 +43,6 @@ declare module "next-auth/jwt" {
     role?: EmployeeRole | string | null
     employeeStatus?: EmployeeStatus | string | null
     emailVerified?: Date | string | null
+    tokenVersion?: number
   }
 }

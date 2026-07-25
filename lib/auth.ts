@@ -31,7 +31,7 @@ const oauthProviders: NextAuthOptions["providers"] = []
 
 const CREDENTIAL_PROVIDER_IDS = ["credentials", "credentials-password", "credentials-otp", "credentials-autologin"]
 
-const jwtUserCache = createJwtUserCache<CachedJwtUser>()
+export const jwtUserCache = createJwtUserCache<CachedJwtUser>()
 
 if (process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim()) {
   oauthProviders.push(
@@ -273,6 +273,7 @@ export const authOptions: NextAuthOptions = {
         token.candidateId = (user as any).candidateId
         token.role = (user as any).role
         token.employeeStatus = (user as any).employeeStatus
+        token.tokenVersion = (user as any).tokenVersion ?? 0
       }
 
       if (trigger === "signUp" && user?.id) {
@@ -286,13 +287,15 @@ export const authOptions: NextAuthOptions = {
 
       if (token.id || token.sub) {
         const userId = (token.id || token.sub) as string
-        const cacheKey = `user:${userId}`
+        const currentTokenVersion = token.tokenVersion ?? 0
+        const cacheKey = `user:${userId}:${currentTokenVersion}`
 
         if (trigger === "update") {
           jwtUserCache.delete(cacheKey)
+          jwtUserCache.delete(`user:${userId}`)
         }
 
-        let dbUser = jwtUserCache.get(cacheKey)
+        let dbUser = await jwtUserCache.get(cacheKey)
         if (!dbUser) {
           dbUser = await prisma.user.findUnique({
             where: { id: userId },
@@ -304,9 +307,12 @@ export const authOptions: NextAuthOptions = {
           if (dbUser) jwtUserCache.set(cacheKey, dbUser)
         }
 
-        if (dbUser && !dbUser.deletedAt) {
+        const isTokenVersionValid = dbUser && (dbUser.tokenVersion ?? 0) === currentTokenVersion
+
+        if (dbUser && !dbUser.deletedAt && isTokenVersionValid) {
           token.id = dbUser.id
           token.email = dbUser.email!
+          token.tokenVersion = dbUser.tokenVersion ?? 0
 
           const emp = dbUser.employees[0]
           const cand = dbUser.candidates[0]
@@ -318,9 +324,11 @@ export const authOptions: NextAuthOptions = {
           token.emailVerified = dbUser.emailVerified ? dbUser.emailVerified.toISOString() : null
         } else {
           jwtUserCache.delete(cacheKey)
+          jwtUserCache.delete(`user:${userId}`)
           token.id = null as any
           token.sub = undefined
           token.email = null as any
+          token.tokenVersion = undefined
         }
       }
 
@@ -336,6 +344,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = (token.role as any) || null
         session.user.employeeStatus = (token.employeeStatus as any) || null
         session.user.emailVerified = (token.emailVerified as any) || null
+        session.user.tokenVersion = token.tokenVersion
       }
       return session
     },

@@ -10,6 +10,7 @@ import {
   setupOrgSchema,
   resetPasswordSchema,
   inviteEmployeeSchema,
+  changePasswordSchema,
 } from "@/features/auth/schema/auth-schemas"
 import { checkRateLimit } from "@/features/auth/utils/rate-limit"
 import { generateAndSaveToken } from "@/features/auth/utils/token-utils"
@@ -26,6 +27,7 @@ import {
   sendInviteEmailService,
 } from "@/features/auth/services/auth-email.service"
 import { requireOrgAdmin, acceptEmployeeInvitation } from "@/features/auth/services/invite.service"
+import { jwtUserCache } from "@/lib/auth"
 
 export const authRouter = router({
   getSession: publicProcedure.query(async ({ ctx }) => {
@@ -515,5 +517,136 @@ export const authRouter = router({
       requireOrgAdmin(ctx.session.user, invite.organizationId)
       await ctx.prisma.employeeInvitation.delete({ where: { id: invite.id } })
       return { success: true, message: "Invitation revoked." }
+    }),
+
+  changePassword: protectedProcedure
+    .input(changePasswordSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      await checkRateLimit(ctx.prisma, `change-password:${userId}`, 5, 15 * 60 * 1000)
+
+      const user = await ctx.prisma.user.findUnique({ where: { id: userId } })
+      if (!user) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found." })
+      }
+
+      if (!user.hashedPassword) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Your account relies on social login or OTP. Directly setting a password is not supported for this account type.",
+        })
+      }
+
+      const isValidPassword = await bcrypt.compare(input.currentPassword, user.hashedPassword)
+      if (!isValidPassword) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Incorrect current password." })
+      }
+
+      const newHashedPassword = await bcrypt.hash(input.newPassword, 12)
+      const now = new Date()
+
+      await ctx.prisma.$transaction([
+        ctx.prisma.user.update({
+          where: { id: userId },
+          data: {
+            hashedPassword: newHashedPassword,
+            lastPasswordChangedAt: now,
+            tokenVersion: { increment: 1 },
+          },
+        }),
+        ctx.prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            organizationId: ctx.session.user.organizationId || null,
+            employeeId: ctx.session.user.employeeId || null,
+            event: "PASSWORD_CHANGED",
+            action: "PASSWORD_CHANGED",
+            entityName: "User",
+            entityId: user.id,
+          },
+        }),
+      ])
+
+      await jwtUserCache.delete(`user:${userId}`)
+      await jwtUserCache.delete(`user:${userId}:${user.tokenVersion}`)
+
+      return { success: true, message: "Password updated successfully." }
+    }),
+
+  getActiveSessions: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id
+    const sessions = await ctx.prisma.session.findMany({
+      where: { userId, revokedAt: null, expires: { gt: new Date() } },
+      orderBy: { lastSeenAt: "desc" },
+    })
+
+    return sessions.map((s) => ({
+      id: s.id,
+      userAgent: s.userAgent,
+      ipAddress: s.ipAddress,
+      createdAt: s.createdAt,
+      lastSeenAt: s.lastSeenAt,
+    }))
+  }),
+
+  revokeSession: protectedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      const sessionToRevoke = await ctx.prisma.session.findUnique({ where: { id: input.sessionId } })
+
+      if (!sessionToRevoke || sessionToRevoke.userId !== userId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Session not found." })
+      }
+
+      await ctx.prisma.$transaction([
+        ctx.prisma.session.update({
+          where: { id: input.sessionId },
+          data: { revokedAt: new Date() },
+        }),
+        ctx.prisma.auditLog.create({
+          data: {
+            userId,
+            organizationId: ctx.session.user.organizationId || null,
+            employeeId: ctx.session.user.employeeId || null,
+            event: "SESSION_REVOKED",
+            action: "SESSION_REVOKED",
+            entityName: "Session",
+            entityId: input.sessionId,
+          },
+        }),
+      ])
+
+      return { success: true, message: "Session revoked successfully." }
+    }),
+
+  revokeOtherSessions: protectedProcedure
+    .input(z.object({ currentSessionToken: z.string().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+
+      const whereCondition = input.currentSessionToken
+        ? { userId, revokedAt: null, NOT: { sessionToken: input.currentSessionToken } }
+        : { userId, revokedAt: null }
+
+      await ctx.prisma.$transaction([
+        ctx.prisma.session.updateMany({
+          where: whereCondition,
+          data: { revokedAt: new Date() },
+        }),
+        ctx.prisma.auditLog.create({
+          data: {
+            userId,
+            organizationId: ctx.session.user.organizationId || null,
+            employeeId: ctx.session.user.employeeId || null,
+            event: "SESSION_REVOKED",
+            action: "SESSION_REVOKED_OTHER_DEVICES",
+            entityName: "User",
+            entityId: userId,
+          },
+        }),
+      ])
+
+      return { success: true, message: "All other sessions have been revoked successfully." }
     }),
 })

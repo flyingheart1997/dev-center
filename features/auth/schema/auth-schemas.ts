@@ -73,6 +73,20 @@ export const inviteEmployeeSchema = z.object({
   departmentId: z.string().optional(),
 })
 
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(PASSWORD_REGEX, PASSWORD_VALIDATION_MESSAGE),
+    confirmPassword: z.string().min(8, "Please confirm your new password"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  })
+
 export type RegisterUserInput = z.infer<typeof registerUserSchema>
 export type SetupOrgInput = z.infer<typeof setupOrgSchema>
 export type LoginOtpInput = z.infer<typeof loginOtpSchema>
@@ -80,3 +94,4 @@ export type LoginPasswordInput = z.infer<typeof loginPasswordSchema>
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 export type InviteEmployeeInput = z.infer<typeof inviteEmployeeSchema>
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>

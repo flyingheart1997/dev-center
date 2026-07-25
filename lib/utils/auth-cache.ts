@@ -1,14 +1,20 @@
+export interface AuthCache<T> {
+  get(key: string): Promise<T | null> | T | null
+  set(key: string, value: T, ttlMs?: number): Promise<void> | void
+  delete(key: string): Promise<void> | void
+}
+
 interface CacheEntry<T> {
   value: T
   expiresAt: number
 }
 
-export class LRUCache<T> {
+export class MemoryAuthCache<T> implements AuthCache<T> {
   private store = new Map<string, CacheEntry<T>>()
 
   constructor(
-    private maxSize: number,
-    private ttlMs: number
+    private maxSize: number = 1000,
+    private defaultTtlMs: number = Number(process.env.AUTH_CACHE_TTL) || 30000
   ) {}
 
   get(key: string): T | null {
@@ -20,19 +26,20 @@ export class LRUCache<T> {
       return null
     }
 
-    // Refresh recency by re-inserting at the end
+    // Refresh recency
     this.store.delete(key)
     this.store.set(key, entry)
     return entry.value
   }
 
-  set(key: string, value: T): void {
+  set(key: string, value: T, ttlMs?: number): void {
     this.store.delete(key)
     if (this.store.size >= this.maxSize) {
       const oldestKey = this.store.keys().next().value
       if (oldestKey !== undefined) this.store.delete(oldestKey)
     }
-    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs })
+    const duration = ttlMs ?? this.defaultTtlMs
+    this.store.set(key, { value, expiresAt: Date.now() + duration })
   }
 
   delete(key: string): void {
@@ -40,8 +47,7 @@ export class LRUCache<T> {
   }
 }
 
-// 5-minute TTL: bounds how long a soft-deleted or role-changed user keeps stale JWT claims.
-// Swap to Redis by replacing this class's body with client calls of the same shape.
-export function createJwtUserCache<T>() {
-  return new LRUCache<T>(1000, 5 * 60 * 1000)
+// Global LRU Memory Cache for JWT User claims (configurable via AUTH_CACHE_TTL env)
+export function createJwtUserCache<T>(): AuthCache<T> {
+  return new MemoryAuthCache<T>(1000)
 }
