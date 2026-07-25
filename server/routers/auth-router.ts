@@ -12,6 +12,7 @@ import {
   inviteEmployeeSchema,
   changePasswordSchema,
 } from "@/features/auth/schema/auth-schemas"
+import { updateUserProfileSchema } from "@/features/organization/schemas/organization-schemas"
 import { checkRateLimit } from "@/features/auth/utils/rate-limit"
 import { generateAndSaveToken } from "@/features/auth/utils/token-utils"
 import { isPublicEmailDomain } from "@/features/auth/utils/domain-utils"
@@ -669,5 +670,26 @@ export const authRouter = router({
       ])
 
       return { success: true, message: "All other sessions have been revoked successfully." }
+    }),
+
+  updateProfile: protectedProcedure
+    .input(updateUserProfileSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+
+      const updatedUser = await ctx.prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: input.name,
+          image: input.image || null,
+          phone: input.phone || null,
+          location: input.location || null,
+          linkedinUrl: input.linkedinUrl || null,
+          githubUrl: input.githubUrl || null,
+          portfolioUrl: input.portfolioUrl || null,
+        },
+      })
+
+      return { success: true, user: updatedUser }
     }),
 })

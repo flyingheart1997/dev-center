@@ -8,6 +8,8 @@ import superjson from "superjson"
 import { trpc } from "./client"
 import { getAppUrl } from "@/lib/utils/url-utils"
 
+export { trpc } from "./client"
+
 function getBaseUrl() {
   if (typeof window !== "undefined") return ""
   return getAppUrl()

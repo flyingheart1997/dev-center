@@ -136,3 +136,23 @@ dev-center/
     * Prisma Client API: [.agents/skills/prisma/prisma-client-api/SKILL.md](file:///Users/koushikmondal/dev-center/.agents/skills/prisma/prisma-client-api/SKILL.md)
     * Prisma CLI: [.agents/skills/prisma/prisma-cli/SKILL.md](file:///Users/koushikmondal/dev-center/.agents/skills/prisma/prisma-cli/SKILL.md)
     * Prisma Postgres: [.agents/skills/prisma/prisma-postgres/SKILL.md](file:///Users/koushikmondal/dev-center/.agents/skills/prisma/prisma-postgres/SKILL.md)
+
+### K. Standardized Spelling Enforcement (`organization`)
+* ALWAYS use American English spelling **`organization`** (matching Prisma schema `Organization` and `organizationId`) across all file names, directory names, TypeScript types, variables, and comments. **NEVER** use `organisation` with an 's'.
+
+### L. Encapsulated Custom Hooks for View & Business Logic Separation
+* Presentation components (`features/<module>/components/*`) MUST remain 100% pure UI templates.
+* **NEVER** write inline `useState` form submit handlers, or direct tRPC/TanStack query/mutation calls inside component render blocks.
+* ALL interactive state, React Hook Form instances (`useForm`), and tRPC mutations/queries MUST be encapsulated inside dedicated custom hooks located in `features/<module>/hooks/use-*.ts`.
+* Presentation components ONLY consume the clean return objects provided by custom feature hooks.
+
+### M. TanStack Query + tRPC Sectional Data Architecture
+* ALL API data fetching and mutations MUST consume TanStack Query via tRPC (`trpc.<router>.<procedure>.useQuery()` / `trpc.<router>.<procedure>.useMutation()`).
+* Every dashboard widget or page section MUST have its own independent loading state (Skeleton loader) and Empty/No-Data state.
+* NEVER block the entire page render with a single root full-page loading spinner. Load section data asynchronously.
+
+### N. Strict shadcn/ui Preset Styling & Micro-Component Architecture
+* Stick strictly to standard **shadcn/ui** presets and Tailwind utility classes (`sm:max-w-md`, `sm:max-w-lg`, `border-border`, `bg-card`).
+* **NEVER** introduce arbitrary static inline widths (e.g. `sm:max-w-125`), custom border styles, or arbitrary background color overrides that break standard Light/Dark mode themes.
+* Build interfaces using modular, single-responsibility micro-components designed for multi-role reuse.
+

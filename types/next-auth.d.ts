@@ -10,6 +10,8 @@ declare module "next-auth" {
       image?: string | null
       organizationId?: string | null
       employeeId?: string | null
+      branchId?: string | null
+      businessUnitId?: string | null
       candidateId?: string | null
       role?: EmployeeRole | string | null
       employeeStatus?: EmployeeStatus | string | null
@@ -25,6 +27,8 @@ declare module "next-auth" {
     image?: string | null
     organizationId?: string | null
     employeeId?: string | null
+    branchId?: string | null
+    businessUnitId?: string | null
     candidateId?: string | null
     role?: EmployeeRole | string | null
     employeeStatus?: EmployeeStatus | string | null
@@ -39,6 +43,8 @@ declare module "next-auth/jwt" {
     email: string
     organizationId?: string | null
     employeeId?: string | null
+    branchId?: string | null
+    businessUnitId?: string | null
     candidateId?: string | null
     role?: EmployeeRole | string | null
     employeeStatus?: EmployeeStatus | string | null
