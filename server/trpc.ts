@@ -1,7 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server"
 import superjson from "superjson"
 import { getServerSession } from "next-auth"
-import { EmployeeRole } from "@/types/enums"
+import { EmployeeRole, EmployeeStatus } from "@/types/enums"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
@@ -37,7 +37,10 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     })
   }
 
-  if (ctx.session.user.employeeStatus === "PENDING_APPROVAL" || ctx.session.user.employeeStatus === "SUSPENDED") {
+  if (
+    ctx.session.user.employeeStatus === EmployeeStatus.PENDING_APPROVAL ||
+    ctx.session.user.employeeStatus === EmployeeStatus.SUSPENDED
+  ) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
       message: "Your organization access is pending approval or suspended.",

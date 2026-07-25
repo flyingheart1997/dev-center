@@ -409,15 +409,36 @@ export const authRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "User not found." })
       }
 
+      if (user.deletedAt) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "This account has been deactivated." })
+      }
+
       const hashedPassword = await bcrypt.hash(input.newPassword, 12)
 
       await ctx.prisma.$transaction([
         ctx.prisma.user.update({
           where: { email },
-          data: { hashedPassword },
+          data: {
+            hashedPassword,
+            lastPasswordChangedAt: new Date(),
+            tokenVersion: { increment: 1 },
+          },
         }),
         ctx.prisma.verificationToken.delete({ where: { id: record.id } }),
+        ctx.prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            event: "PASSWORD_CHANGED",
+            action: "PASSWORD_RESET",
+            entityName: "User",
+            entityId: user.id,
+          },
+        }),
       ])
+
+      // Bust JWT cache so next token refresh picks up new tokenVersion
+      await jwtUserCache.delete(`user:${user.id}`)
+      await jwtUserCache.delete(`user:${user.id}:${user.tokenVersion}`)
 
       return { success: true, message: "Your password has been reset successfully! You can now log in." }
     }),

@@ -242,6 +242,10 @@ export const authOptions: NextAuthOptions = {
         // Ignore if immutable in context
       }
 
+      if (dbUser && mode === "register") {
+        return "/login?error=OAuthAccountAlreadyExists"
+      }
+
       if (!dbUser) {
         if (mode !== "register") {
           return "/login?error=OAuthAccountNotRegistered"

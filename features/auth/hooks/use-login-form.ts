@@ -60,6 +60,11 @@ export function useLoginForm() {
           type: "error",
           text: "Email is not registered with an account. Please sign up to create one.",
         })
+      } else if (errorParam === "OAuthAccountAlreadyExists") {
+        setMessage({
+          type: "error",
+          text: "An account with this email already exists. Please log in instead of signing up.",
+        })
       } else if (errorParam === "WorkEmailRequired") {
         setMessage({
           type: "error",
