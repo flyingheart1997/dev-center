@@ -193,15 +193,15 @@ export const Logo = () => {
     return (
         <Link
             href="/"
-            className="relative z-20 flex items-center text-sm font-normal text-foreground"
+            className="relative z-20 flex items-center gap-2.5 text-sm font-normal text-foreground"
         >
-            <div className="h-10 w-10 shrink-0 rounded-full">
-                <img src="/logo.png" alt="logo" className="h-full w-full" />
+            <div className="h-9 w-9 shrink-0 rounded-full">
+                <img src="/logo.png" alt="logo" className="h-full w-full object-contain" />
             </div>
             <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="whitespace-pre text-lg font-bold text-foreground"
+                className="whitespace-pre text-lg font-extrabold bg-linear-to-r from-cyan-500 via-sky-500 to-blue-600 dark:from-cyan-300 dark:via-sky-400 dark:to-blue-400 bg-clip-text text-transparent tracking-tight"
             >
                 Dev Center
             </motion.span>
@@ -237,8 +237,8 @@ const SidebarContent = ({
     const route = routes[2] || routes[1];
 
     return (
-        <div className="flex flex-1 rounded-tl-2xl">
-            <div className="flex h-full w-full flex-1 flex-col gap-2 rounded-tl-2xl border border-neutral-200 dark:border-neutral-700 bg-gray-100 dark:bg-neutral-800 overflow-hidden">
+        <div className="flex flex-1 min-h-0 min-w-0 rounded-tl-2xl shadow-inner">
+            <div className="flex h-full w-full flex-1 min-h-0 min-w-0 flex-col gap-2 rounded-tl-2xl border border-neutral-200 dark:border-neutral-700 bg-gray-100 dark:bg-neutral-800 overflow-hidden">
                 <div className="flex-1 flex flex-col min-w-0 relative min-h-0 overflow-hidden">
                     <header className="h-14 px-6 flex items-center rounded-tl-2xl justify-between shrink-0 backdrop-blur-xs">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -247,7 +247,7 @@ const SidebarContent = ({
                                     <BreadcrumbItem>
                                         <BreadcrumbLink asChild>
                                             <Link href={link?.href || "/dashboard"}>
-                                                <span className={cn("font-medium hover:text-foreground hover:underline underline-offset-2 transition-all")}>
+                                                <span className={cn("font-medium text-lg hover:text-foreground hover:underline underline-offset-2 transition-all")}>
                                                     {link?.label || "Dashboard"}
                                                 </span>
                                             </Link>
@@ -282,7 +282,7 @@ const SidebarContent = ({
                     </header>
 
                     <div className="p-2 pt-0 w-full flex-1 min-h-0 overflow-hidden">
-                        <div className="rounded-2xl bg-neutral-200 h-full p-2 md:p-4 dark:bg-neutral-900/40 flex-1 space-y-6 overflow-y-auto">
+                        <div className="rounded-2xl bg-neutral-200 h-full p-2 md:p-4 dark:bg-neutral-900/40 flex-1 space-y-6 overflow-y-auto touch-pan-y overscroll-contain min-h-0">
                             {children}
                         </div>
                     </div>

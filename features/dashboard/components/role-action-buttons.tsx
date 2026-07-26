@@ -47,9 +47,9 @@ export function RoleActionButtons({ role }: RoleActionButtonsProps) {
       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
         Operational Actions
       </span>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         {canCreateJob && (
-          <Button asChild size="lg" className="w-full justify-center h-10 text-xs">
+          <Button variant="outline" size="lg" className="w-full justify-center h-10 text-xs" asChild>
             <Link href="/jobs/new">
               <Plus className="h-4 w-4" />
               Create Job
