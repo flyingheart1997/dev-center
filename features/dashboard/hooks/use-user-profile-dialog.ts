@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useSession } from "next-auth/react"
-import { updateUserProfileSchema, UpdateUserProfileInput } from "@/features/organization/schemas/organization-schemas"
+import { updateUserProfileSchema, UpdateUserProfileInput } from "@/features/(organization)/organization/schemas/organization-schemas"
 import { trpc } from "@/lib/trpc/client"
 
 export function useUserProfileDialog(onOpenChange: (open: boolean) => void) {

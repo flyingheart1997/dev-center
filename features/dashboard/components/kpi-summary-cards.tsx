@@ -112,7 +112,7 @@ export function KpiSummaryCards({ stats, isLoading = false }: KpiSummaryCardsPro
               card.glowBg
             )}
           >
-            <CardContent className="px-4 py-3.5 flex items-center justify-between gap-3 min-w-0">
+            <CardContent className="px-4 py-0 flex items-center justify-between gap-3 min-w-0">
               {/* Left: Icon & Value Stack */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className={cn("h-11 w-11 rounded-lg flex items-center justify-center shrink-0", card.iconBg)}>

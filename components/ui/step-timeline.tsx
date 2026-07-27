@@ -128,7 +128,7 @@ export function StepTimeline({
 
   // Parent Timeline Default View
   return (
-    <div className={cn("flex items-center w-full justify-between gap-1 overflow-x-auto py-1 no-scrollbar", className)}>
+    <div className={cn("flex items-center w-full justify-between gap-1 overflow-x-auto pt-1 no-scrollbar", className)}>
       {steps.map((step, index) => {
         const isCompleted = step.id < activeStepIndex
         const isCurrentActive = step.id === activeStepIndex

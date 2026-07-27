@@ -13,15 +13,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { EmployeeRole } from "@/types/enums"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
+import { EmployeeRole } from "@/types/enums"
 import { useInviteEmployeeDialog } from "../hooks/use-invite-employee-dialog"
 import { FormFeedback } from "@/components/ui/form-feedback"
 
@@ -37,13 +31,9 @@ export function InviteEmployeeDialog({ open: controlledOpen, onOpenChange: contr
   const open = isControlled ? controlledOpen : internalOpen
   const onOpenChange = isControlled ? controlledOnOpenChange : setInternalOpen
 
-  const { form, branches, onSubmit, isPending, successMessage, errorMessage } = useInviteEmployeeDialog(
-    open,
-    onOpenChange || (() => {})
-  )
-
+  const { form, onSubmit, isPending, successMessage, errorMessage } = useInviteEmployeeDialog(onOpenChange || (() => {}))
   const { register, setValue, watch, formState: { errors } } = form
-  const selectedRole = watch("role")
+  const roleValue = watch("role")
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -52,7 +42,7 @@ export function InviteEmployeeDialog({ open: controlledOpen, onOpenChange: contr
         <DialogHeader>
           <DialogTitle>Invite Team Member</DialogTitle>
           <DialogDescription>
-            Send an official email invitation to join your organization team with a specific role.
+            Send an email invitation link to join your organization account.
           </DialogDescription>
         </DialogHeader>
 
@@ -61,23 +51,15 @@ export function InviteEmployeeDialog({ open: controlledOpen, onOpenChange: contr
 
           <div className="space-y-1.5">
             <Label htmlFor="invite-email">Work Email Address</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              placeholder="employee@company.com"
-              {...register("email")}
-            />
+            <Input id="invite-email" type="email" placeholder="colleague@company.com" {...register("email")} />
             {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="invite-role">Assigned Employee Role</Label>
-            <Select
-              value={selectedRole}
-              onValueChange={(val) => setValue("role", val as EmployeeRole)}
-            >
+            <Label htmlFor="invite-role">Assigned Role</Label>
+            <Select value={roleValue} onValueChange={(val) => setValue("role", val as EmployeeRole)}>
               <SelectTrigger id="invite-role">
-                <SelectValue placeholder="Select role" />
+                <SelectValue placeholder="Select Role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={EmployeeRole.RECRUITER}>Recruiter</SelectItem>
@@ -91,31 +73,13 @@ export function InviteEmployeeDialog({ open: controlledOpen, onOpenChange: contr
             {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
           </div>
 
-          {branches && branches.length > 0 && (
-            <div className="space-y-1.5">
-              <Label htmlFor="invite-branch">Assigned Branch (Optional)</Label>
-              <Select onValueChange={(val) => setValue("branchId", val)}>
-                <SelectTrigger id="invite-branch">
-                  <SelectValue placeholder="All Branches (Global Scope)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name} ({b.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           <DialogFooter className="mt-4 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange?.(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send Invitation Link
+              Send Invitation
             </Button>
           </DialogFooter>
         </form>

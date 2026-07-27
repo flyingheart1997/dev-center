@@ -16,7 +16,6 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Loader2 } from "lucide-react"
 import { useCreateBranchDialog } from "../hooks/use-create-branch-dialog"
-
 import { FormFeedback } from "@/components/ui/form-feedback"
 
 interface CreateBranchDialogProps {

@@ -4,7 +4,7 @@ import React from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Plus, Send, Calendar, UserPlus } from "lucide-react"
-import { InviteEmployeeDialog } from "@/features/organization/components/invite-employee-dialog"
+import { InviteEmployeeDialog } from "@/features/(organization)/organization/components/invite-employee-dialog"
 import { EmployeeRole } from "@/types/enums"
 
 interface RoleActionButtonsProps {

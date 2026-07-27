@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { createBranchSchema, CreateBranchInput } from "@/features/organization/schemas/organization-schemas"
+import { createBranchSchema, CreateBranchInput } from "../schemas/organization-schemas"
 import { trpc } from "@/lib/trpc/client"
 
 export function useCreateBranchDialog(onOpenChange: (open: boolean) => void) {

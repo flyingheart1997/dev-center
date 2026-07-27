@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { router, protectedProcedure, adminProcedure } from "../trpc"
-import { createBranchSchema, updateOrgSettingsSchema } from "@/features/organization/schemas/organization-schemas"
+import { createBranchSchema, updateOrgSettingsSchema } from "@/features/(organization)/organization/schemas/organization-schemas"
 import { inviteEmployeeSchema } from "@/features/auth/schema/auth-schemas"
 import { sendInviteEmailService } from "@/features/auth/services/auth-email.service"
 import { getAppUrl } from "@/lib/utils/url-utils"
@@ -97,19 +97,23 @@ export const organizationRouter = router({
         throw new TRPCError({ code: "FORBIDDEN", message: "No organization associated with user." })
       }
 
-      // Check if code already exists in org
-      const existing = await ctx.prisma.branch.findFirst({
-        where: {
-          organizationId,
-          code: input.code.toUpperCase(),
-        },
-      })
+      const formattedCode = input.code && input.code.trim() ? input.code.trim().toUpperCase() : null
 
-      if (existing) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `Branch with code '${input.code.toUpperCase()}' already exists.`,
+      // Check if code already exists in org
+      if (formattedCode) {
+        const existing = await ctx.prisma.branch.findFirst({
+          where: {
+            organizationId,
+            code: formattedCode,
+          },
         })
+
+        if (existing) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Branch with code '${formattedCode}' already exists.`,
+          })
+        }
       }
 
       // If set to head office, reset any previous head office flag
@@ -144,7 +148,7 @@ export const organizationRouter = router({
           organizationId,
           businessUnitId,
           name: input.name,
-          code: input.code.toUpperCase(),
+          code: formattedCode,
           city: input.city,
           country: input.country,
           timezone: input.timezone,
@@ -162,7 +166,7 @@ export const organizationRouter = router({
             role: EmployeeRole.BRANCH_ADMIN,
             branchId: branch.id,
           },
-        }).catch(() => {})
+        }).catch(() => { })
       }
 
       return branch

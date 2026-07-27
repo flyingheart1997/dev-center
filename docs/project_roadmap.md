@@ -77,8 +77,36 @@ This roadmap outlines the implementation schedule, architectural steps, database
 
 ---
 
-## Phase 3: Enterprise Job Management & ATS Pipeline (Next Up)
-**Goal**: Implement Kanban board ATS candidate pipelines, job requisitions, round configurations, and approval workflows.
+## Phase 3: Enterprise Organization Dashboard, Job Management & ATS Pipeline (In Progress)
+**Goal**: Build the multi-tenant enterprise dashboard, job requisition workflows, round configurations, candidate ATS Kanban pipelines, and approval queues.
+
+### 1. Multi-Role Enterprise Organization Dashboard (`/dashboard`) (Completed)
+* **Role-Based Dynamic Visualization**:
+  * Scoped data fetching via tRPC (`getOrganizationDashboard`): Multi-tenant isolation by `organizationId` (Owner/Admin) or `branchId` (Branch Admin/Recruiter) or `employeeId` (Interviewer).
+  * **Top KPI Summary Cards (`KpiSummaryCards`)**: 4 theme-colored metrics (`Active Job Requisitions`, `Pipeline Candidates`, `Scheduled Live Interviews`, `Pending Approvals`) with trend growth badges (`+12%`), secondary subtitles, 5-bar mini sparkline visualizers, and radial background glows.
+  * **Left Operational Column (`lg:col-span-2`)**:
+    * `ActiveJobsWidget`: Top 5 active published requisitions with applicant count badges and direct links.
+    * `AiScreeningAnalyticsWidget`: Real-time AI Voice & Compiler Arena performance charts (Recharts AreaChart, pass/fail trends, 4 mini AI metric cards).
+    * `DraftJobsWidget`: Incomplete draft requisitions with quick `Resume Setup` actions.
+    * `RecentCandidatesWidget`: Latest candidate evaluations with status badges and interview scores.
+  * **Right Action Sidebar Column (`lg:col-span-1`)**:
+    * `RoleActionButtons`: Role-aware quick actions (`Create Job`, `Invite Team`).
+    * `UpcomingInterviewsWidget`: Scheduled live interviews with dual-mode views (Option A 1-row for Interviewer, Option B 2-row for Admin/HR with Interviewer Avatar & Designation).
+    * `PendingScorecardsWidget`: Pending feedback forms with dual-mode views and `[Fill Scorecard]` CTA.
+    * `PendingOffersWidget`: Active candidate job offer letters with salary packages.
+    * `PendingRequisitionsWidget`: Job requisitions awaiting administrative verification and approval sign-off.
+* **Component Architecture & Refactoring**:
+  * Unified `InterviewCardItem` micro-component eliminating TSX code duplication.
+  * Strict `cn(...)` utility enforcement for all conditional Tailwind styling.
+  * Cyan-to-blue text gradient matching `public/logo.png` on sidebar logo text (`Dev Center`).
+
+### 2. Job Requisition Management (`/jobs` & `/jobs/new`) (Next Up)
+* Job Requisition Multi-Step Creator Wizard (`/jobs/new`): Scoping, Required Skills tagger, Round Setup configurator, and Approval trigger.
+* Enterprise Job Listing & Management (`/jobs`): Status filter tabs (`Active`, `Draft`, `Pending Approval`, `Completed`) and quick actions.
+
+### 3. Candidate ATS Kanban Pipeline (`/candidates` & `/jobs/[jobId]/candidates`) (Pending)
+* Drag-and-Drop Kanban Board (`Applied` ➔ `AI Pre-Screened` ➔ `Round 1 Technical` ➔ `Round 2 Interview` ➔ `Offer Extended` ➔ `Hired / Rejected`).
+* Candidate details drawer with ATS resume preview, AI evaluation scores, and scorecard summaries.
 
 ---
 

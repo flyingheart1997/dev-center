@@ -12,7 +12,7 @@ import {
   inviteEmployeeSchema,
   changePasswordSchema,
 } from "@/features/auth/schema/auth-schemas"
-import { updateUserProfileSchema } from "@/features/organization/schemas/organization-schemas"
+import { updateUserProfileSchema } from "@/features/(organization)/organization/schemas/organization-schemas"
 import { checkRateLimit } from "@/features/auth/utils/rate-limit"
 import { generateAndSaveToken } from "@/features/auth/utils/token-utils"
 import { isPublicEmailDomain } from "@/features/auth/utils/domain-utils"
@@ -306,7 +306,7 @@ export const authRouter = router({
       }
 
       if (parsed.intent === "candidate") {
-        await ctx.prisma.candidate.create({ data: { userId: user.id } }).catch(() => {})
+        await ctx.prisma.candidate.create({ data: { userId: user.id } }).catch(() => { })
         const autoLoginToken = await generateAndSaveToken(ctx.prisma, `auto-login:${email}`, 60 * 1000)
         return { success: true, intent: "candidate" as const, autoLoginToken, message: "Email verified successfully!" }
       }

@@ -37,7 +37,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
     }
 
     return (
-      <InputGroup className={cn("h-9", containerClassName)}>
+      <InputGroup className={cn("h-8", containerClassName)}>
         <InputGroupAddon align="inline-start">
           <Search className="h-4 w-4 text-muted-foreground" />
         </InputGroupAddon>
