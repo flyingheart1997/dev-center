@@ -171,7 +171,7 @@ export function JobsDashboard() {
       />
 
       {/* 2. Row 2: Integrated Action & Filter Control Bar (Sticky Header with bg-gray-100 dark:bg-neutral-800 shadow-sm) */}
-      <div className="sticky -top-2 md:-top-4 z-30 bg-gray-100 dark:bg-neutral-800 shadow-sm p-3 rounded-xl border border-border/50 transition-all mb-4">
+      <div className="sticky -top-2 md:-top-4 z-30 bg-gray-100 dark:bg-neutral-800 shadow-sm p-3 rounded-xl border border-border/50 transition-shadow mb-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 items-center">
           {/* Left Portion (2 Columns Wide on Large Screens): Segmented Control Pills + Search + Filter */}
           <div className="lg:col-span-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 min-w-0">

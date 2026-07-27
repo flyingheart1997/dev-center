@@ -240,14 +240,14 @@ const SidebarContent = ({
         <div className="flex flex-1 min-h-0 min-w-0 rounded-tl-2xl shadow-inner">
             <div className="flex h-full w-full flex-1 min-h-0 min-w-0 flex-col gap-2 rounded-tl-2xl border border-neutral-200 dark:border-neutral-700 bg-gray-100 dark:bg-neutral-800 overflow-hidden">
                 <div className="flex-1 flex flex-col min-w-0 relative min-h-0 overflow-hidden">
-                    <header className="h-14 px-6 flex items-center rounded-tl-2xl justify-between shrink-0 backdrop-blur-xs">
+                    <header className="h-14 px-6 flex items-center rounded-tl-2xl justify-between shrink-0 bg-neutral-100/90 dark:bg-neutral-800/90">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Breadcrumb>
                                 <BreadcrumbList>
                                     <BreadcrumbItem>
                                         <BreadcrumbLink asChild>
                                             <Link href={link?.href || "/dashboard"}>
-                                                <span className={cn("font-medium text-lg hover:text-foreground hover:underline underline-offset-2 transition-all")}>
+                                                <span className={cn("font-medium text-lg hover:text-foreground hover:underline underline-offset-2 transition-colors")}>
                                                     {link?.label || "Dashboard"}
                                                 </span>
                                             </Link>
@@ -282,7 +282,7 @@ const SidebarContent = ({
                     </header>
 
                     <div className="p-2 pt-0 w-full flex-1 min-h-0 overflow-hidden">
-                        <div className="rounded-2xl bg-neutral-200 h-full p-2 md:p-4 dark:bg-neutral-900/40 flex-1 space-y-6 overflow-y-auto touch-pan-y overscroll-contain min-h-0">
+                        <div className="rounded-2xl bg-neutral-200 h-full p-2 md:p-4 dark:bg-neutral-900/40 flex-1 space-y-6 overflow-y-auto touch-pan-y overscroll-contain min-h-0 transform-[translateZ(0)]">
                             {children}
                         </div>
                     </div>

@@ -89,7 +89,7 @@ export const DesktopSidebar = ({
     <Fragment>
       <motion.div
         className={cn(
-          "h-full px-2.5 py-4 hidden md:flex md:flex-col bg-neutral-100 dark:bg-neutral-800 w-75 shrink-0",
+          "h-full px-2.5 py-4 hidden md:flex md:flex-col bg-neutral-100 dark:bg-neutral-800 shrink-0 will-change-[width]",
           className
         )}
         animate={{
@@ -175,7 +175,7 @@ export const SidebarLink = ({
     <a
       href={link.href}
       className={cn(
-        "flex justify-start items-center rounded-md group/sidebar hover:bg-neutral-200/80 dark:hover:bg-neutral-700/40 bg-clip-padding backdrop-filter backdrop-blur-sm bg-opacity-10 ",
+        "flex justify-start items-center rounded-md group/sidebar hover:bg-neutral-200/80 dark:hover:bg-neutral-700/40 transition-colors",
         active && "bg-neutral-200/80 dark:bg-neutral-700/40",
         className
       )}
