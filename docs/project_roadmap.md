@@ -100,8 +100,8 @@ This roadmap outlines the implementation schedule, architectural steps, database
   * Strict `cn(...)` utility enforcement for all conditional Tailwind styling.
   * Cyan-to-blue text gradient matching `public/logo.png` on sidebar logo text (`Dev Center`).
 
-### 2. Job Requisition Management (`/jobs` & `/jobs/new`) (Next Up)
-* Job Requisition Multi-Step Creator Wizard (`/jobs/new`): Scoping, Required Skills tagger, Round Setup configurator, and Approval trigger.
+### 2. Job Requisition Management (`/jobs` & `/jobs/create-job`) (Next Up)
+* Job Requisition Multi-Step Creator Wizard (`/jobs/create-job`): Scoping, Required Skills tagger, Round Setup configurator, and Approval trigger.
 * Enterprise Job Listing & Management (`/jobs`): Status filter tabs (`Active`, `Draft`, `Pending Approval`, `Completed`) and quick actions.
 
 ### 3. Candidate ATS Kanban Pipeline (`/candidates` & `/jobs/[jobId]/candidates`) (Pending)

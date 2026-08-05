@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { MapPin, User } from "lucide-react"
+import { MapPin, User, FileEdit, ArrowRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { DashboardTimelineNodes, TimelineNodeStep } from "./dashboard-timeline-nodes"
 
@@ -25,7 +26,7 @@ export function DraftRequisitionCard({
   className,
 }: DraftRequisitionProps) {
   return (
-    <Card className={cn("p-4 border border-border bg-card space-y-3.5 hover:border-primary/40 transition-all text-left shadow-xs", className)}>
+    <Card className={cn("group relative p-4 border border-border bg-card space-y-3.5 hover:border-primary/40 transition-all text-left shadow-xs overflow-hidden", className)}>
       <div className="flex items-start justify-between gap-3 min-w-0">
         <div className="space-y-1 min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -46,9 +47,21 @@ export function DraftRequisitionCard({
           </div>
         </div>
 
-        <Badge variant="outline" className="text-[10px] font-medium py-1 px-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shrink-0">
-          Draft Requisition
-        </Badge>
+        {/* Top-Right Badge <-> Button Swap Container */}
+        <div className="relative shrink-0 self-center flex items-center justify-end">
+          <Badge
+            variant="outline"
+            className="text-[10px] font-medium py-1 px-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shrink-0 transition-all duration-200 group-hover:opacity-0 group-hover:scale-95 group-hover:pointer-events-none"
+          >
+            Draft Requisition
+          </Badge>
+
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 scale-95 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 pointer-events-none group-hover:pointer-events-auto flex items-center">
+            <Button variant="outline" size="sm" className="h-7 text-xs font-semibold gap-1 border-amber-500/40 bg-background hover:bg-muted text-amber-600 dark:text-amber-400 shadow-xs">
+              <FileEdit className="h-3.5 w-3.5 text-amber-500" /> Resume Setup <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* 5-Step Draft Requisition Setup Timeline */}

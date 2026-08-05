@@ -4,9 +4,8 @@ import React from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileEdit, ArrowRight, ArrowUpRight } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { JobRequisitionCard, JobRequisitionData } from "@/features/jobs/components/job-requisition-card"
+import { FileEdit, ArrowUpRight } from "lucide-react"
+import { JobRequisitionCard, JobRequisitionData } from "@/features/(organization)/jobs/components/job-requisition-card"
 
 export interface DraftJobItem {
   id: string
@@ -36,7 +35,7 @@ export function DraftJobsWidget({ drafts, isLoading = false }: DraftJobsWidgetPr
             Jobs requiring setup completion before publishing or submitting for approval
           </CardDescription>
         </div>
-        
+
         {/* Header Action: View All Button */}
         <Button variant="outline" size="sm" asChild className="shrink-0 ml-3 text-xs font-medium">
           <Link href="/jobs?tab=drafts">

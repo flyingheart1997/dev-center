@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Mail, Sparkles } from "lucide-react"
+import { Mail, Sparkles, UserCheck, ArrowUpRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { DashboardTimelineNodes, TimelineNodeStep } from "./dashboard-timeline-nodes"
@@ -47,7 +48,7 @@ export function CandidateEvaluationRowCard({
   }[statusVariant]
 
   return (
-    <Card className={cn("p-4 border border-border bg-card space-y-3.5 hover:border-primary/40 transition-all text-left shadow-xs", className)}>
+    <Card className={cn("group relative p-4 border border-border bg-card space-y-3.5 hover:border-primary/40 transition-all text-left shadow-xs overflow-hidden", className)}>
       <div className="flex items-center justify-between gap-3 min-w-0 flex-wrap sm:flex-nowrap">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <Avatar className="h-10 w-10 border border-border shrink-0">
@@ -73,13 +74,22 @@ export function CandidateEvaluationRowCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge variant="outline" className="py-1 px-2.5 text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
-            <Sparkles className="h-3 w-3 mr-1" /> AI Score: {aiScore}%
-          </Badge>
-          <Badge variant="outline" className={cn("py-1 px-2.5 text-xs font-medium", statusBadgeStyles)}>
-            {statusBadge}
-          </Badge>
+        {/* Top-Right Badges <-> Button Swap Container */}
+        <div className="relative shrink-0 self-center flex items-center justify-end">
+          <div className="flex items-center gap-2 transition-all duration-200 group-hover:opacity-0 group-hover:scale-95 group-hover:pointer-events-none">
+            <Badge variant="outline" className="py-1 px-2.5 text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+              <Sparkles className="h-3 w-3 mr-1" /> AI Score: {aiScore}%
+            </Badge>
+            <Badge variant="outline" className={cn("py-1 px-2.5 text-xs font-medium", statusBadgeStyles)}>
+              {statusBadge}
+            </Badge>
+          </div>
+
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 scale-95 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 pointer-events-none group-hover:pointer-events-auto flex items-center">
+            <Button variant="outline" size="sm" className="h-7 text-xs font-semibold gap-1 border-primary/40 bg-background hover:bg-muted shadow-xs">
+              <UserCheck className="h-3.5 w-3.5 text-primary" /> View Details <ArrowUpRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 

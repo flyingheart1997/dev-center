@@ -200,79 +200,82 @@ export function JobRequisitionCard({
           </div>
         </div>
 
-        {/* Top-Right Badge: Draft Requisition OR Pending Approval OR Applicants Count */}
-        <div className="flex items-center gap-2 shrink-0 self-center sm:ml-auto">
-          {isPendingApproval ? (
-            <Badge
-              variant="outline"
-              className="text-[10px] font-medium bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 shrink-0 py-1 px-2.5"
-            >
-              Pending Approval
-            </Badge>
-          ) : isDraft ? (
-            <Badge
-              variant="outline"
-              className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shrink-0 py-1 px-2.5"
-            >
-              Draft Requisition
-            </Badge>
-          ) : (
-            <Badge
-              variant="outline"
-              className="text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 shrink-0 flex items-center gap-1.5 py-1 px-2.5"
-            >
-              <Users className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-              <span>{job.applicantCount || 0} Applicants</span>
-            </Badge>
+        {/* Top-Right Badge <-> Action Button Swap Container */}
+        <div className="relative shrink-0 self-center sm:ml-auto flex items-center justify-end">
+          {/* Non-hover state: Badges */}
+          <div className="flex items-center gap-2 transition-all duration-200 group-hover:opacity-0 group-hover:scale-95 group-hover:pointer-events-none">
+            {isPendingApproval ? (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-medium bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 shrink-0 py-1 px-2.5"
+              >
+                Pending Approval
+              </Badge>
+            ) : isDraft ? (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 shrink-0 py-1 px-2.5"
+              >
+                Draft Requisition
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 shrink-0 flex items-center gap-1.5 py-1 px-2.5"
+              >
+                <Users className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                <span>{job.applicantCount || 0} Applicants</span>
+              </Badge>
+            )}
+          </div>
+
+          {/* Hover state: Action Button */}
+          {showHoverOverlay && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 scale-95 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 pointer-events-none group-hover:pointer-events-auto flex items-center">
+              {isPendingApproval ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="h-7 text-xs font-semibold bg-background hover:bg-muted shadow-xs gap-1 border-orange-500/40 text-orange-600 dark:text-orange-400"
+                >
+                  <Link href={`/jobs/${job.id}`}>
+                    <FileCheck className="w-3.5 h-3.5 text-orange-500" /> Review & Approve
+                    <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+                  </Link>
+                </Button>
+              ) : isDraft ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="h-7 text-xs font-semibold bg-background hover:bg-muted shadow-xs gap-1 border-amber-500/40 text-amber-600 dark:text-amber-400"
+                >
+                  <Link href={`/jobs/${job.id}/edit`}>
+                    <FileEdit className="w-3.5 h-3.5 text-amber-500" /> Resume Setup
+                    <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="h-7 text-xs font-semibold bg-background hover:bg-muted shadow-xs gap-1 border-primary/40"
+                >
+                  <Link href={`/jobs/${job.id}`}>
+                    <Briefcase className="w-3.5 h-3.5 text-primary" /> View ATS
+                    <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
+                  </Link>
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
 
       {/* Shared Interactive Timeline Step Bar */}
       <StepTimeline steps={steps} activeStepIndex={activeIndex} accentColor={accentColor} />
-
-      {/* Glassmorphism Soft Gray Hover Overlay */}
-      {showHoverOverlay && (
-        <div className="absolute inset-0 rounded-lg bg-background/50 dark:bg-neutral-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center p-4 pointer-events-none group-hover:pointer-events-auto">
-          {isPendingApproval ? (
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              className="font-semibold bg-background/90 hover:bg-background shadow-sm gap-1.5 text-xs animate-in fade-in zoom-in-95 duration-150 border-orange-500/30"
-            >
-              <Link href={`/jobs/${job.id}`}>
-                <FileCheck className="w-3.5 h-3.5 text-orange-500" /> Review & Approve
-                <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
-              </Link>
-            </Button>
-          ) : isDraft ? (
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              className="font-semibold bg-background/90 hover:bg-background shadow-sm gap-1.5 text-xs animate-in fade-in zoom-in-95 duration-150 border-amber-500/30"
-            >
-              <Link href={`/jobs/${job.id}/edit`}>
-                <FileEdit className="w-3.5 h-3.5 text-amber-500" /> Resume Setup
-                <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
-              </Link>
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              className="font-semibold bg-background/90 hover:bg-background shadow-sm gap-1.5 text-xs animate-in fade-in zoom-in-95 duration-150 border-primary/30"
-            >
-              <Link href={`/jobs/${job.id}`}>
-                <Briefcase className="w-3.5 h-3.5 text-primary" /> View ATS
-                <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
-              </Link>
-            </Button>
-          )}
-        </div>
-      )}
     </div>
   )
 }

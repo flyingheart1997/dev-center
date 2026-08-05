@@ -175,9 +175,12 @@ dev-center/
 │   └── page.tsx              # Public Entry Page
 │
 ├── features/                 # Domain-Specific Modules (Self-contained business logic)
+│   ├── (organization)/       # Organization-scoped B2B Employer modules
+│   │   ├── jobs/             # Requisition & Job Creation Wizard (/jobs/create-job), cards, schemas, hooks
+│   │   ├── candidates/       # Candidate evaluation cards & detail modals
+│   │   └── organization/     # Business Units, Branches, Departments management
 │   ├── auth/                 # Authentication features (NextAuth callbacks, custom middleware)
-│   ├── organization/         # Business Units, Branches, Departments management
-│   ├── jobs/                 # Job posting, requisition approvals, multi-board posts
+│   ├── jobs/                 # Jobs overview dashboard & landing visualizer components
 │   ├── screening/            # AI Verbal screening & AI Virtual Compiler pipelines
 │   ├── interview/            # Live WebRTC Meeting Room, Monaco editor, Interviewer notes
 │   ├── candidate-prep/       # B2C AI Voice Mock, ATS Resume Reviewer, Practice Coding Arena

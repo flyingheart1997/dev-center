@@ -50,7 +50,7 @@ export function RoleActionButtons({ role }: RoleActionButtonsProps) {
       <div className="grid grid-cols-2 gap-2.5">
         {canCreateJob && (
           <Button variant="outline" size="lg" className="w-full justify-center h-10 text-xs" asChild>
-            <Link href="/jobs/new">
+            <Link href="/jobs/create-job">
               <Plus className="h-4 w-4" />
               Create Job
             </Link>

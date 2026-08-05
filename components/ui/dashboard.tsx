@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { GooeyInput } from "./gooey-input";
 import Link from "next/link";
-import { BellIcon, LogOut, Settings, User, Building2, ChevronDown, Sparkles } from "lucide-react";
+import { BellIcon, LogOut, Settings, User, Building2, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
@@ -48,16 +48,30 @@ export function Dashboard({
     const user = session?.user;
 
     return (
-        <div className={cn("flex w-full flex-1 flex-col overflow-hidden rounded-md border border-neutral-200 bg-gray-100 md:flex-row dark:border-neutral-700 dark:bg-neutral-800")}>
+        <div className={cn("flex w-full flex-1 flex-row overflow-hidden rounded-md border border-neutral-200 bg-gray-100 dark:border-neutral-700 dark:bg-neutral-800")}>
             <UserProfileDialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen} />
 
             <Sidebar open={open} setOpen={setOpen} animate={true}>
-                <SidebarBody className="justify-between gap-6">
+                <SidebarBody className="justify-between pb-6">
                     <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-                        {open ? <Logo /> : <LogoIcon />}
+                        <Logo open={open} />
 
                         {/* Workspace Switcher Header */}
-                        {user?.organizationId && open && <WorkspaceSwitcherHeader />}
+                        {user?.organizationId && (
+                            <motion.div
+                                initial={false}
+                                animate={{
+                                    height: open ? "auto" : 0,
+                                    opacity: open ? 1 : 0,
+                                    marginTop: open ? "12px" : 0,
+                                    marginBottom: open ? "4px" : 0,
+                                }}
+                                transition={{ duration: 0.2, ease: "easeInOut" }}
+                                className="overflow-hidden shrink-0"
+                            >
+                                <WorkspaceSwitcherHeader />
+                            </motion.div>
+                        )}
 
                         <div className="mt-4 flex flex-col gap-1.5">
                             {links.map((link, idx) => (
@@ -104,7 +118,7 @@ function UserButton({ sidebarOpen, openProfileDialog, className }: { sidebarOpen
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className={cn(`flex h-auto items-center justify-start gap-2 w-full p-1 rounded-lg hover:bg-neutral-200/60 dark:hover:bg-neutral-700/50 transition-colors text-left group`, className)}>
+                <Button variant="ghost" className={cn(`flex h-auto items-center justify-start gap-2 w-full p-1 rounded-lg hover:bg-neutral-200/60 dark:hover:bg-neutral-700/50 transition-colors text-left group overflow-hidden`, className)}>
                     <Avatar className="h-8 w-8 shrink-0 border border-border">
                         {userImage ? (
                             <AvatarImage src={userImage} alt={userName} />
@@ -114,16 +128,22 @@ function UserButton({ sidebarOpen, openProfileDialog, className }: { sidebarOpen
                         </AvatarFallback>
                     </Avatar>
 
-                    {sidebarOpen && (
-                        <div className="flex-1 min-w-0 flex flex-col">
-                            <span className="text-xs font-semibold truncate text-foreground">
-                                {userName}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground truncate">
-                                {userRole}
-                            </span>
-                        </div>
-                    )}
+                    <motion.div
+                        initial={false}
+                        animate={{
+                            width: sidebarOpen ? "auto" : 0,
+                            opacity: sidebarOpen ? 1 : 0,
+                        }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                        className="flex-1 min-w-0 flex flex-col overflow-hidden whitespace-nowrap"
+                    >
+                        <span className="text-xs font-semibold truncate text-foreground">
+                            {userName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground truncate">
+                            {userRole}
+                        </span>
+                    </motion.div>
                 </Button>
             </DropdownMenuTrigger>
 
@@ -171,7 +191,7 @@ function WorkspaceSwitcherHeader() {
     const orgName = orgSettings?.name || "My Organization";
 
     return (
-        <div className="mt-3 mb-1 px-1">
+        <div className="px-1">
             <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-200/50 dark:bg-neutral-900/40 border border-neutral-300/40 dark:border-neutral-700/50">
                 <div className="flex items-center gap-2 min-w-0">
                     <div className="h-6 w-6 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -189,19 +209,23 @@ function WorkspaceSwitcherHeader() {
     );
 }
 
-export const Logo = () => {
+export const Logo = ({ open }: { open?: boolean }) => {
     return (
         <Link
             href="/"
-            className="relative z-20 flex items-center gap-2.5 text-sm font-normal text-foreground"
+            className="relative shrink-0 z-20 flex items-center gap-2.5 text-sm font-normal text-foreground h-10 px-1 overflow-hidden"
         >
-            <div className="h-9 w-9 shrink-0 rounded-full">
+            <div className="h-9 w-9 shrink-0 rounded-full flex items-center justify-center">
                 <img src="/logo.png" alt="logo" className="h-full w-full object-contain" />
             </div>
             <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="whitespace-pre text-lg font-extrabold bg-linear-to-r from-cyan-500 via-sky-500 to-blue-600 dark:from-cyan-300 dark:via-sky-400 dark:to-blue-400 bg-clip-text text-transparent tracking-tight"
+                initial={false}
+                animate={{
+                    width: open ? "auto" : 0,
+                    opacity: open ? 1 : 0,
+                }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="whitespace-nowrap overflow-hidden text-lg font-extrabold bg-linear-to-r from-cyan-500 via-sky-500 to-blue-600 dark:from-cyan-300 dark:via-sky-400 dark:to-blue-400 bg-clip-text text-transparent tracking-tight inline-block"
             >
                 Dev Center
             </motion.span>
@@ -282,7 +306,7 @@ const SidebarContent = ({
                     </header>
 
                     <div className="p-2 pt-0 w-full flex-1 min-h-0 overflow-hidden">
-                        <div className="rounded-2xl bg-neutral-200 h-full p-2 md:p-4 dark:bg-neutral-900/40 flex-1 space-y-6 overflow-y-auto touch-pan-y overscroll-contain min-h-0 transform-[translateZ(0)]">
+                        <div className="rounded-2xl bg-neutral-200 h-full p-2 md:p-4 dark:bg-neutral-900/40 flex-1 space-y-6 overflow-y-auto touch-pan-y overscroll-contain min-h-0">
                             {children}
                         </div>
                     </div>

@@ -71,12 +71,7 @@ export const Sidebar = ({
 };
 
 export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => {
-  return (
-    <Fragment>
-      <DesktopSidebar {...props} />
-      <MobileSidebar {...(props as React.ComponentProps<"div">)} />
-    </Fragment>
-  );
+  return <DesktopSidebar {...props} />;
 };
 
 export const DesktopSidebar = ({
@@ -86,10 +81,11 @@ export const DesktopSidebar = ({
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate } = useSidebar();
   return (
-    <Fragment>
+    <div className="relative h-full w-15 block shrink-0 z-40">
       <motion.div
         className={cn(
-          "h-full px-2.5 py-4 hidden md:flex md:flex-col bg-neutral-100 dark:bg-neutral-800 shrink-0 will-change-[width]",
+          "h-full px-2.5 py-4 flex flex-col bg-neutral-100 dark:bg-neutral-800 shrink-0 overflow-hidden absolute left-0 top-0 z-40 transition-shadow duration-200",
+          open && "shadow-2xl border-r border-neutral-300 dark:border-neutral-700",
           className
         )}
         animate={{
@@ -106,7 +102,7 @@ export const DesktopSidebar = ({
       >
         {children}
       </motion.div>
-    </Fragment>
+    </div>
   );
 };
 
@@ -175,7 +171,7 @@ export const SidebarLink = ({
     <a
       href={link.href}
       className={cn(
-        "flex justify-start items-center rounded-md group/sidebar hover:bg-neutral-200/80 dark:hover:bg-neutral-700/40 transition-colors",
+        "flex justify-start items-center rounded-md group/sidebar hover:bg-neutral-200/80 dark:hover:bg-neutral-700/40 transition-colors overflow-hidden",
         active && "bg-neutral-200/80 dark:bg-neutral-700/40",
         className
       )}
@@ -188,11 +184,16 @@ export const SidebarLink = ({
       </Tooltip>
 
       <motion.span
+        initial={false}
         animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
+          width: animate ? (open ? "auto" : 0) : "auto",
           opacity: animate ? (open ? 1 : 0) : 1,
         }}
-        className="text-neutral-700 dark:text-neutral-200 text-sm group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre inline-block p-0! m-0!"
+        transition={{
+          duration: 0.2,
+          ease: "easeInOut",
+        }}
+        className="text-neutral-700 dark:text-neutral-200 text-sm group-hover/sidebar:translate-x-1 transition-transform duration-150 whitespace-nowrap overflow-hidden inline-block"
       >
         {link.label}
       </motion.span>

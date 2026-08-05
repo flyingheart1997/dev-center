@@ -50,14 +50,13 @@ We follow a **Feature-Based (Modular) Folder Architecture** to isolate domains. 
 dev-center/
 ├── app/                      # Routing layers only (Layouts, Pages, APIs)
 ├── features/                 # Self-contained business modules
+│   ├── (organization)/       # B2B Employer Organization modules
+│   │   ├── jobs/             # Job creation wizard (/jobs/create-job), requisition cards, Zod schemas & store
+│   │   ├── candidates/       # Candidate evaluation cards, ATS pipeline & candidate detail modals
+│   │   └── organization/     # Business Units, Branches, Departments, Members
 │   ├── auth/                 # NextAuth callbacks, Resend tokens
-│   │   ├── components/       # Feature UI presentation components
-│   │   ├── hooks/            # Feature hooks (React Hook Form + tRPC mutations)
-│   │   ├── schemas/          # Shared Zod validation schemas
-│   │   └── store/            # Feature Zustand stores
 │   ├── candidate-prep/       # Candidate AI voice mock arena, ATS resume studio, coding practice
-│   ├── organization/         # Organization, BusinessUnits, Branches, Departments, Members
-│   ├── jobs/                 # Job posts, applications, approvals & standard forms
+│   ├── jobs/                 # High-level Requisitions dashboard overview & landing visualizers
 │   ├── screening/            # AI voice and coding arena virtual compiles
 │   ├── interview/            # Live WebRTC rooms, shared editor, notes
 │   ├── billing/              # Stripe Checkouts and Webhooks

@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { JobsDashboard } from "@/features/jobs/components/jobs-dashboard"
+import { JobsDashboard } from "@/features/(organization)/jobs/components/jobs-dashboard"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export const metadata = {

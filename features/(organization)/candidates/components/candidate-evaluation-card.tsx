@@ -161,43 +161,45 @@ export function CandidateEvaluationCard({
         </div>
 
         {/* Top-Right Badges: AI Score & Status */}
-        <div className="flex items-center gap-2 shrink-0 self-center sm:ml-auto">
-          {candidate.screeningScore !== null && candidate.screeningScore !== undefined && (
-            <Badge
-              variant="outline"
-              className="py-1 px-3 text-xs font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 whitespace-nowrap shrink-0"
-            >
-              <Sparkles className="h-3 w-3 mr-1" /> AI Score: {candidate.screeningScore}%
-            </Badge>
-          )}
+        {/* Top-Right Badges <-> Button Swap Container */}
+        <div className="relative shrink-0 self-center sm:ml-auto flex items-center justify-end">
+          <div className="flex items-center gap-2 transition-all duration-200 group-hover:opacity-0 group-hover:scale-95 group-hover:pointer-events-none">
+            {candidate.screeningScore !== null && candidate.screeningScore !== undefined && (
+              <Badge
+                variant="outline"
+                className="py-1 px-3 text-xs font-normal bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 whitespace-nowrap shrink-0"
+              >
+                <Sparkles className="h-3 w-3 mr-1" /> AI Score: {candidate.screeningScore}%
+              </Badge>
+            )}
 
-          <Badge
-            variant="secondary"
-            className="capitalize py-1 px-3 text-xs font-normal bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 whitespace-nowrap shrink-0"
-          >
-            {candidate.status}
-          </Badge>
+            <Badge
+              variant="secondary"
+              className="capitalize py-1 px-3 text-xs font-normal bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 whitespace-nowrap shrink-0"
+            >
+              {candidate.status}
+            </Badge>
+          </div>
+
+          {showHoverOverlay && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 scale-95 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 pointer-events-none group-hover:pointer-events-auto flex items-center">
+              <CandidateDetailModal applicationId={candidate.id} candidateData={candidate}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs font-semibold bg-background hover:bg-muted shadow-xs gap-1 border-primary/40"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-primary" /> View Details
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Button>
+              </CandidateDetailModal>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Shared Interactive Step Timeline Bar */}
       <StepTimeline steps={steps} activeStepIndex={activeIndex} accentColor="purple" />
-
-      {/* Glassmorphism Soft Gray Hover Overlay with DialogTrigger (NO State Required) */}
-      {showHoverOverlay && (
-        <div className="absolute inset-0 rounded-lg bg-background/50 dark:bg-neutral-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center p-4 pointer-events-none group-hover:pointer-events-auto">
-          <CandidateDetailModal applicationId={candidate.id} candidateData={candidate}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="font-semibold bg-background/90 hover:bg-background shadow-sm gap-1.5 text-xs animate-in fade-in zoom-in-95 duration-150 border-primary/30"
-            >
-              <UserCheck className="w-3.5 h-3.5 text-primary" /> View Details
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </Button>
-          </CandidateDetailModal>
-        </div>
-      )}
     </div>
   )
 }
