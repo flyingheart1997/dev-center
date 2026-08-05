@@ -3,64 +3,74 @@
 import * as React from "react"
 import Link from "next/link"
 import { Sparkles, ArrowRight, ShieldCheck } from "lucide-react"
-import { 
-  IconBrandGithub, 
-  IconBrandX, 
-  IconBrandLinkedin, 
-  IconBrandYoutube 
+import {
+  IconBrandGithub,
+  IconBrandX,
+  IconBrandLinkedin,
+  IconBrandYoutube
 } from "@tabler/icons-react"
+import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { FadeInWhenVisible, ParallaxGlow, GlowingOrbParticles } from "./landing-motion"
 
 export function CTAFooterSection() {
   return (
-    <footer className="relative bg-card border-t border-border/40">
-      
+    <footer className="relative bg-card border-t border-border/40 overflow-hidden">
+      <ParallaxGlow offset={60} className="w-125 h-125 bg-primary/15 top-[10%] left-1/2 -translate-x-1/2" />
+      <GlowingOrbParticles count={12} />
+
       {/* Top CTA Conversion Banner */}
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 md:py-20">
-        <div className="rounded-2xl border border-border/70 bg-muted/20 p-8 sm:p-12 text-center space-y-5">
-          
-          <Badge variant="outline" className="px-3 py-1 text-xs">
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Get Started Free
-          </Badge>
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 md:py-20 relative z-10">
+        <FadeInWhenVisible distance={30} delay={0}>
+          <div className="rounded-2xl border border-border/70 bg-muted/20 p-8 sm:p-12 text-center space-y-5 shadow-xl">
 
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground max-w-2xl mx-auto leading-tight">
-            Ready to Replace Multiple Hiring Tools with One Unified Platform?
-          </h2>
+            <Badge variant="outline" className="px-3 py-1 text-xs">
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+              Get Started Free
+            </Badge>
 
-          <p className="text-muted-foreground text-sm max-w-lg mx-auto leading-relaxed">
-            Join recruiters and hiring managers streamlining ATS candidate tracking, AI voice pre-screening, and live WebRTC interviews today.
-          </p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground max-w-2xl mx-auto leading-tight">
+              Ready to Replace Multiple Hiring Tools with One Unified Platform?
+            </h2>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <Button size="lg" asChild className="h-11 px-7 text-sm font-semibold gap-2">
-              <Link href="/register">
-                Start Hiring For Free
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
+            <p className="text-muted-foreground text-sm max-w-lg mx-auto leading-relaxed">
+              Join recruiters and hiring managers streamlining ATS candidate tracking, AI voice pre-screening, and live WebRTC interviews today.
+            </p>
 
-            <Button size="lg" variant="outline" asChild className="h-11 px-7 text-sm font-medium">
-              <Link href="/login">
-                Sign In to Dashboard
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <Button size="lg" asChild className="h-11 px-7 text-sm font-semibold gap-2 shadow-md">
+                  <Link href="/register">
+                    Start Hiring For Free
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </motion.div>
+
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <Button size="lg" variant="outline" asChild className="h-11 px-7 text-sm font-medium">
+                  <Link href="/login">
+                    Sign In to Dashboard
+                  </Link>
+                </Button>
+              </motion.div>
+            </div>
+
+            <p className="text-xs text-muted-foreground pt-1">
+              Free forever tier includes 10,000 candidate screenings. No credit card required.
+            </p>
           </div>
-
-          <p className="text-xs text-muted-foreground pt-1">
-            Free forever tier includes 10,000 candidate screenings. No credit card required.
-          </p>
-        </div>
+        </FadeInWhenVisible>
       </div>
 
       {/* Main Footer Links */}
-      <div className="border-t border-border/40 py-10">
+      <div className="border-t border-border/40 py-10 relative z-10">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          
+
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
-            
-            <div className="col-span-2 space-y-3">
+
+            <div className="col-span-2 space-y-3 text-left">
               <Link href="/" className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -86,7 +96,7 @@ export function CTAFooterSection() {
               </div>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 text-left">
               <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Product</h4>
               <ul className="space-y-1.5 text-xs text-muted-foreground font-medium">
                 <li><Link href="#ats-pipeline" className="hover:text-foreground">ATS Pipeline</Link></li>
@@ -97,7 +107,7 @@ export function CTAFooterSection() {
               </ul>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 text-left">
               <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Solutions</h4>
               <ul className="space-y-2 text-xs text-muted-foreground font-medium">
                 <li><Link href="#solutions" className="hover:text-foreground">Enterprise HR</Link></li>
@@ -108,7 +118,7 @@ export function CTAFooterSection() {
               </ul>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 text-left">
               <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Legal</h4>
               <ul className="space-y-2 text-xs text-muted-foreground font-medium">
                 <li><Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link></li>
@@ -133,3 +143,4 @@ export function CTAFooterSection() {
     </footer>
   )
 }
+

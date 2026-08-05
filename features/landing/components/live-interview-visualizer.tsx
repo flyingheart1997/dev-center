@@ -5,7 +5,6 @@ import {
   Video, 
   Mic, 
   Code2, 
-  FileEdit, 
   Star, 
   Share2,
   PhoneOff,
@@ -14,34 +13,40 @@ import {
   FileText,
   Users
 } from "lucide-react"
-import { Card } from "@/components/ui/card"
+import { motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { FadeInWhenVisible, ParallaxGlow } from "./landing-motion"
 
 export function LiveInterviewVisualizer() {
   return (
-    <section id="live-interviews" className="py-16 md:py-20 border-b border-border/40 bg-muted/10">
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
+    <section id="live-interviews" className="relative py-16 md:py-20 border-b border-border/40 bg-muted/10 overflow-hidden">
+      <ParallaxGlow offset={60} className="w-112.5 h-112.5 bg-blue-500/10 top-[20%] -left-20" />
+
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12 relative z-10">
         
         {/* Section Header */}
-        <div className="max-w-3xl mx-auto text-center space-y-3">
-          <Badge variant="outline" className="px-3 py-1 text-xs">
-            <Video className="h-3.5 w-3.5 mr-1 text-primary" />
-            Collaborative WebRTC Environment
-          </Badge>
+        <FadeInWhenVisible delay={0}>
+          <div className="max-w-3xl mx-auto text-center space-y-3">
+            <Badge variant="outline" className="px-3 py-1 text-xs">
+              <Video className="h-3.5 w-3.5 mr-1 text-primary" />
+              Collaborative WebRTC Environment
+            </Badge>
 
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
-            Host Live Video Calls & Shared Pair-Coding Rooms
-          </h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+              Host Live Video Calls & Shared Pair-Coding Rooms
+            </h2>
 
-          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
-            No more switching between Zoom, CoderPad, and Google Docs. Problem statements, shared Monaco code editors, LiveKit video feeds, and scorecards in one interface.
-          </p>
-        </div>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
+              No more switching between Zoom, CoderPad, and Google Docs. Problem statements, shared Monaco code editors, LiveKit video feeds, and scorecards in one interface.
+            </p>
+          </div>
+        </FadeInWhenVisible>
 
         {/* 3-Column IDE Layout with Full-Width Meeting Bottom Toolbar */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-2xl overflow-hidden font-sans">
+        <FadeInWhenVisible distance={40} delay={0.2}>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-2xl overflow-hidden font-sans">
           
           {/* Top Window Bar */}
           <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-900/90 border-b border-zinc-800 text-xs">
@@ -110,13 +115,19 @@ export function LiveInterviewVisualizer() {
                   <Code2 className="h-3.5 w-3.5 text-blue-400" />
                   <span>solution.tsx</span>
                 </div>
-                <span className="text-emerald-400 text-[10px] font-mono">50ms Live Sync</span>
+                <div className="flex items-center gap-1 text-emerald-400 text-[10px] font-mono">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span>50ms Live Sync</span>
+                </div>
               </div>
 
               <div className="p-3 font-mono text-[11px] leading-relaxed text-zinc-200 space-y-1 overflow-x-auto">
                 <div className="flex gap-3">
                   <span className="text-zinc-600 select-none w-4 text-right">1</span>
-                  <span className="text-zinc-500">// Task: Implement LRU Cache with O(1) ops</span>
+                  <span className="text-zinc-500">{"// Task: Implement LRU Cache with O(1) ops"}</span>
                 </div>
 
                 <div className="flex gap-3">
@@ -131,7 +142,10 @@ export function LiveInterviewVisualizer() {
 
                 <div className="flex gap-3">
                   <span className="text-zinc-600 select-none w-4 text-right">4</span>
-                  <div className="pl-4">private cache: Map&lt;number, number&gt;;</div>
+                  <div className="pl-4">
+                    private cache: Map&lt;number, number&gt;;
+                    <motion.span animate={{ opacity: [1, 0, 1] }} transition={{ repeat: Infinity, duration: 0.8 }} className="inline-block w-1.5 h-3.5 bg-blue-400 align-middle ml-1" />
+                  </div>
                 </div>
 
                 <div className="flex gap-3 bg-emerald-500/10 -mx-3 px-3 py-0.5 rounded border-l-2 border-emerald-500">
@@ -240,6 +254,7 @@ export function LiveInterviewVisualizer() {
           </div>
 
         </div>
+        </FadeInWhenVisible>
 
       </div>
     </section>

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CandidateEvaluationRowCard } from "./shared/candidate-evaluation-row-card"
 import { DraftRequisitionCard } from "./shared/draft-requisition-card"
+import { AnimatePresence, motion } from "motion/react"
 
 export function HeroInteractivePreview() {
   const [activeTab, setActiveTab] = React.useState<"dashboard" | "ai-screening" | "live-interview">("dashboard")
@@ -81,10 +82,17 @@ export function HeroInteractivePreview() {
 
       {/* Main View Area */}
       <div className="p-3 sm:p-4 bg-background/50">
-
-        {/* VIEW 1: Real Organization Dashboard */}
-        {activeTab === "dashboard" && (
-          <div className="space-y-3.5 animate-in fade-in-50 duration-200">
+        <AnimatePresence mode="wait">
+          {/* VIEW 1: Real Organization Dashboard */}
+          {activeTab === "dashboard" && (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-3.5"
+            >
 
 
 
@@ -258,12 +266,19 @@ export function HeroInteractivePreview() {
 
             </div>
 
-          </div>
-        )}
+            </motion.div>
+          )}
 
-        {/* VIEW 2: AI Voice & Compiler Screening */}
-        {activeTab === "ai-screening" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in-50 duration-200">
+          {/* VIEW 2: AI Voice & Compiler Screening */}
+          {activeTab === "ai-screening" && (
+            <motion.div
+              key="ai-screening"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
 
             <Card className="p-4 border-border/70 shadow-none space-y-3 bg-card">
               <div className="flex items-center justify-between border-b border-border/40 pb-2">
@@ -324,12 +339,19 @@ export function HeroInteractivePreview() {
               </div>
             </Card>
 
-          </div>
+          </motion.div>
         )}
 
         {/* VIEW 3: Live WebRTC Interview Room */}
         {activeTab === "live-interview" && (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-2xl overflow-hidden font-sans animate-in fade-in-50 duration-200">
+          <motion.div
+            key="live-interview"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-xl border border-zinc-800 bg-zinc-950 text-zinc-100 shadow-2xl overflow-hidden font-sans"
+          >
 
             {/* Top Bar */}
             <div className="flex items-center justify-between px-3 py-2 bg-zinc-900 border-b border-zinc-800 text-xs">
@@ -379,7 +401,7 @@ export function HeroInteractivePreview() {
                 <div className="p-2.5 font-mono text-[10px] leading-relaxed text-zinc-200 space-y-1 overflow-x-auto">
                   <div className="flex gap-2">
                     <span className="text-zinc-600 select-none w-3 text-right">1</span>
-                    <span className="text-zinc-500">// Task: Implement LRU Cache with O(1) ops</span>
+                    <span className="text-zinc-500">{"// Task: Implement LRU Cache with O(1) ops"}</span>
                   </div>
 
                   <div className="flex gap-2">
@@ -498,8 +520,9 @@ export function HeroInteractivePreview() {
               </div>
             </div>
 
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
       </div>
     </div>

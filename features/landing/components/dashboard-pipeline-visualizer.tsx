@@ -12,38 +12,42 @@ import {
   ArrowRight,
   UserCheck,
   Building2,
-  FileEdit,
-  Plus
+  FileEdit
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CandidateEvaluationRowCard } from "./shared/candidate-evaluation-row-card"
 import { DraftRequisitionCard } from "./shared/draft-requisition-card"
+import { FadeInWhenVisible, ParallaxGlow } from "./landing-motion"
 
 export function DashboardPipelineVisualizer() {
   return (
-    <section id="ats-pipeline" className="py-16 md:py-20 border-b border-border/40">
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
+    <section id="ats-pipeline" className="relative py-16 md:py-20 border-b border-border/40 overflow-hidden">
+      <ParallaxGlow offset={70} className="w-125 h-125 bg-blue-500/10 top-[20%] -left-25" />
+
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12 relative z-10">
 
         {/* Section Header */}
-        <div className="max-w-3xl mx-auto text-center space-y-3">
-          <Badge variant="outline" className="px-3 py-1 text-xs">
-            <Building2 className="h-3.5 w-3.5 mr-1 text-primary" />
-            Enterprise Organization Dashboard
-          </Badge>
+        <FadeInWhenVisible delay={0}>
+          <div className="max-w-3xl mx-auto text-center space-y-3">
+            <Badge variant="outline" className="px-3 py-1 text-xs">
+              <Building2 className="h-3.5 w-3.5 mr-1 text-primary" />
+              Enterprise Organization Dashboard
+            </Badge>
 
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
-            Complete Control Over Jobs, AI Screenings & Live Interview Rooms
-          </h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+              Complete Control Over Jobs, AI Screenings & Live Interview Rooms
+            </h2>
 
-          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
-            Experience our actual Organization Dashboard. Monitor real-time candidate merit scores, manage multi-department job requisitions, and review pending approval queues.
-          </p>
-        </div>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
+              Experience our actual Organization Dashboard. Monitor real-time candidate merit scores, manage multi-department job requisitions, and review pending approval queues.
+            </p>
+          </div>
+        </FadeInWhenVisible>
 
         {/* Real Product Organization Dashboard Visualizer */}
-        <div className="w-full rounded-xl border border-border/80 bg-card shadow-2xl overflow-hidden">
+        <FadeInWhenVisible distance={40} delay={0.2} className="w-full rounded-xl border border-border/80 bg-card shadow-2xl overflow-hidden">
 
           {/* Top Browser Window Bar with Traffic Lights (Image 2 style) */}
           <div className="flex items-center justify-between px-4 py-2.5 bg-muted/60 border-b border-border/60 text-xs">
@@ -302,8 +306,7 @@ export function DashboardPipelineVisualizer() {
             </div>
 
           </div>
-
-        </div>
+        </FadeInWhenVisible>
 
       </div>
     </section>

@@ -3,10 +3,12 @@
 import * as React from "react"
 import Link from "next/link"
 import { Check, ArrowRight } from "lucide-react"
+import { motion } from "motion/react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import { FadeInWhenVisible, ParallaxGlow, StaggerGroup, StaggerItem, TiltCard, SpotlightCard } from "./landing-motion"
 
 export function PricingSection() {
   const [isAnnual, setIsAnnual] = React.useState(true)
@@ -64,99 +66,120 @@ export function PricingSection() {
   ]
 
   return (
-    <section id="pricing" className="py-16 md:py-20 border-b border-border/40">
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
+    <section id="pricing" className="relative py-16 md:py-20 border-b border-border/40 overflow-hidden">
+      <ParallaxGlow offset={60} className="w-125 h-125 bg-primary/15 top-[20%] left-1/2 -translate-x-1/2" />
+
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12 relative z-10">
 
         {/* Section Header */}
-        <div className="max-w-3xl mx-auto text-center space-y-3">
-          <Badge variant="outline" className="px-3 py-1 text-xs">
-            Transparent Pricing
-          </Badge>
+        <FadeInWhenVisible delay={0}>
+          <div className="max-w-3xl mx-auto text-center space-y-3">
+            <Badge variant="outline" className="px-3 py-1 text-xs">
+              Transparent Pricing
+            </Badge>
 
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
-            Simple Plans That Scale With Your Hiring Needs
-          </h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+              Simple Plans That Scale With Your Hiring Needs
+            </h2>
 
-          <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
-            No hidden fees or per-seat penalties. Pay for the AI candidate screening volume you need.
-          </p>
+            <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">
+              No hidden fees or per-seat penalties. Pay for the AI candidate screening volume you need.
+            </p>
 
-          {/* Perfectly Aligned Radix Switch Toggle */}
-          <div className="flex items-center justify-center gap-3 pt-3">
-            <span className={`text-xs font-medium ${!isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
-              Monthly
-            </span>
-
-            <Switch
-              checked={isAnnual}
-              onCheckedChange={setIsAnnual}
-              aria-label="Toggle annual billing"
-            />
-
-            <div className="flex items-center gap-1.5">
-              <span className={`text-xs font-medium ${isAnnual ? 'text-foreground' : 'text-muted-foreground'}`}>
-                Annual
+            {/* Perfectly Aligned Radix Switch Toggle */}
+            <div className="flex items-center justify-center gap-3 pt-3">
+              <span className={`text-xs font-medium transition-colors ${!isAnnual ? 'text-foreground font-bold' : 'text-muted-foreground'}`}>
+                Monthly
               </span>
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-medium">
-                Save 25%
-              </Badge>
+
+              <Switch
+                checked={isAnnual}
+                onCheckedChange={setIsAnnual}
+                aria-label="Toggle annual billing"
+              />
+
+              <div className="flex items-center gap-1.5">
+                <span className={`text-xs font-medium transition-colors ${isAnnual ? 'text-foreground font-bold' : 'text-muted-foreground'}`}>
+                  Annual
+                </span>
+                <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-medium bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                  Save 25%
+                </Badge>
+              </div>
             </div>
           </div>
-        </div>
+        </FadeInWhenVisible>
 
         {/* Pricing Cards Grid with pt-6 so -top-3 badge is never clipped */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch pt-6">
+        <StaggerGroup className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch pt-6">
           {plans.map((plan, idx) => (
-            <Card
-              key={idx}
-              className={`p-6 sm:p-7 rounded-xl flex flex-col justify-between space-y-6 transition-all relative ${plan.highlight
-                ? 'border-primary bg-card shadow-lg ring-1 ring-primary/40'
-                : 'border-border/70 bg-card shadow-none'
-                }`}
-            >
-              {plan.highlight && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] uppercase tracking-wider px-3 shadow-md z-10">
-                  Most Popular
-                </Badge>
-              )}
+            <StaggerItem key={idx}>
+              <SpotlightCard className="h-full">
+                <TiltCard tiltAmount={6} className="h-full">
+                <motion.div whileHover={{ y: -6 }} transition={{ duration: 0.2 }} className="h-full">
+                  <Card
+                    className={`h-full p-6 sm:p-7 rounded-xl flex flex-col justify-between space-y-6 transition-all relative ${plan.highlight
+                      ? 'border-primary bg-card shadow-xl ring-1 ring-primary/40'
+                      : 'border-border/70 bg-card shadow-xs hover:border-primary/40 hover:shadow-md'
+                      }`}
+                  >
+                    {plan.highlight && (
+                      <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] uppercase tracking-wider px-3 shadow-md z-10">
+                        Most Popular
+                      </Badge>
+                    )}
 
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
-                </div>
+                    <div className="space-y-4 text-left">
+                      <div>
+                        <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
+                        <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
+                      </div>
 
-                <div className="flex items-baseline gap-1 pt-1">
-                  <span className="text-3xl font-extrabold tracking-tight text-foreground">{plan.price}</span>
-                  <span className="text-xs text-muted-foreground font-medium">{plan.period}</span>
-                </div>
+                      <div className="flex items-baseline gap-1 pt-1">
+                        <motion.span
+                          key={plan.price}
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-3xl font-extrabold tracking-tight text-foreground"
+                        >
+                          {plan.price}
+                        </motion.span>
+                        <span className="text-xs text-muted-foreground font-medium">{plan.period}</span>
+                      </div>
 
-                <div className="space-y-2.5 pt-3 border-t border-border/40">
-                  {plan.features.map((feat, fIdx) => (
-                    <div key={fIdx} className="flex items-start gap-2 text-xs">
-                      <Check className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                      <span className="text-foreground/90 font-medium">{feat}</span>
+                      <div className="space-y-2.5 pt-3 border-t border-border/40">
+                        {plan.features.map((feat, fIdx) => (
+                          <div key={fIdx} className="flex items-start gap-2 text-xs">
+                            <Check className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                            <span className="text-foreground/90 font-medium">{feat}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
 
-              <Button
-                variant={plan.highlight ? "default" : "outline"}
-                size="default"
-                asChild
-                className="w-full h-10 text-xs font-semibold gap-1.5"
-              >
-                <Link href={plan.href}>
-                  {plan.cta}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </Card>
+                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                      <Button
+                        variant={plan.highlight ? "default" : "outline"}
+                        size="default"
+                        asChild
+                        className="w-full h-10 text-xs font-semibold gap-1.5 shadow-xs"
+                      >
+                        <Link href={plan.href}>
+                          {plan.cta}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                    </motion.div>
+                  </Card>
+                </motion.div>
+              </TiltCard>
+            </SpotlightCard>
+          </StaggerItem>
           ))}
-        </div>
+        </StaggerGroup>
 
       </div>
     </section>
   )
 }
+

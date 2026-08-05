@@ -222,7 +222,7 @@ export const NavbarLogo = ({ className }: { className?: string }) => {
         className
       )}
     >
-      <Logo />
+      <Logo open />
     </a>
   );
 };

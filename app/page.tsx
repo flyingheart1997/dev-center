@@ -10,10 +10,12 @@ import { CandidateHubVisualizer } from "@/features/landing/components/candidate-
 import { SolutionsSection } from "@/features/landing/components/solutions-section"
 import { PricingSection } from "@/features/landing/components/pricing-section"
 import { CTAFooterSection } from "@/features/landing/components/cta-footer-section"
+import { ScrollProgressBar } from "@/features/landing/components/landing-motion"
 
 export default function Page() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/20 selection:text-primary">
+      <ScrollProgressBar />
       <LandingHeader />
       <main className="flex-1">
         <HeroSection />
