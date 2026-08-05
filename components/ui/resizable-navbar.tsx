@@ -9,7 +9,7 @@ import {
 } from "motion/react";
 
 import React, { useRef, useState } from "react";
-
+import { Logo } from "./dashboard";
 
 interface NavbarProps {
   children: React.ReactNode;
@@ -83,7 +83,7 @@ export const NavBody = ({ children, className, visible }: NavBodyProps) => {
   return (
     <motion.div
       animate={{
-        width: visible ? "40%" : "100%",
+        width: visible ? "70%" : "100%",
         y: visible ? 20 : 0,
       }}
       transition={{
@@ -222,10 +222,7 @@ export const NavbarLogo = ({ className }: { className?: string }) => {
         className
       )}
     >
-      <div className="h-7 w-7 rounded-lg bg-black dark:bg-white flex items-center justify-center text-white dark:text-black font-extrabold text-sm">
-        D
-      </div>
-      <span>Dev-Center</span>
+      <Logo />
     </a>
   );
 };

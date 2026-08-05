@@ -1,19 +1,33 @@
-import { Button } from "@/components/ui/button"
+import { LandingHeader } from "@/features/landing/components/landing-header"
+import { HeroSection } from "@/features/landing/components/hero-section"
+import { SocialProofSection } from "@/features/landing/components/social-proof-section"
+import { DashboardPipelineVisualizer } from "@/features/landing/components/dashboard-pipeline-visualizer"
+import { RecruitmentTimelineSection } from "@/features/landing/components/recruitment-timeline-section"
+import { AIScreeningVisualizer } from "@/features/landing/components/ai-screening-visualizer"
+import { LiveInterviewVisualizer } from "@/features/landing/components/live-interview-visualizer"
+import { CustomFormsVisualizer } from "@/features/landing/components/custom-forms-visualizer"
+import { CandidateHubVisualizer } from "@/features/landing/components/candidate-hub-visualizer"
+import { SolutionsSection } from "@/features/landing/components/solutions-section"
+import { PricingSection } from "@/features/landing/components/pricing-section"
+import { CTAFooterSection } from "@/features/landing/components/cta-footer-section"
 
 export default function Page() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
+    <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/20 selection:text-primary">
+      <LandingHeader />
+      <main className="flex-1">
+        <HeroSection />
+        <SocialProofSection />
+        <RecruitmentTimelineSection />
+        <DashboardPipelineVisualizer />
+        <AIScreeningVisualizer />
+        <LiveInterviewVisualizer />
+        <CustomFormsVisualizer />
+        <CandidateHubVisualizer />
+        <SolutionsSection />
+        <PricingSection />
+      </main>
+      <CTAFooterSection />
     </div>
   )
 }

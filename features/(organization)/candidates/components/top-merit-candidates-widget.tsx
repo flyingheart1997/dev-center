@@ -112,7 +112,7 @@ export function TopMeritCandidatesWidget({
                     </Tooltip>
                     <div className="flex flex-wrap gap-1 pt-0.5">
                       {app.candidate.skills.slice(0, 2).map((s, idx) => (
-                        <span key={idx} className="text-[9px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium truncate max-w-[90px]">
+                        <span key={idx} className="text-[9px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium truncate max-w-22.5">
                           {s.skill.name}
                         </span>
                       ))}
