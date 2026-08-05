@@ -1,11 +1,9 @@
 "use client"
 
 import React from "react"
-import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Briefcase, Video, UserCheck, AlertCircle } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { useOrgDashboard } from "../hooks/use-org-dashboard"
 import { KpiSummaryCards } from "./kpi-summary-cards"
 import { ActiveJobsWidget } from "./active-jobs-widget"
@@ -18,7 +16,6 @@ import { PendingOffersWidget } from "./pending-offers-widget"
 import { RecentCandidatesWidget } from "./recent-candidates-widget"
 import { UpcomingInterviewsWidget } from "./upcoming-interviews-widget"
 import { EmployeeRole } from "@/types/enums"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function OrganizationDashboard() {
   const { data: session } = useSession()

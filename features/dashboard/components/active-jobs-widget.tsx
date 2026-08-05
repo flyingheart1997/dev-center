@@ -4,7 +4,7 @@ import React from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Briefcase, ArrowRight, ArrowUpRight } from "lucide-react"
+import { Briefcase, ArrowUpRight } from "lucide-react"
 import { JobRequisitionCard, JobRequisitionData } from "@/features/(organization)/jobs/components/job-requisition-card"
 
 export interface ActiveJobItem {

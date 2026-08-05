@@ -1,5 +1,6 @@
 "use client"
 
+import { cn } from "@/lib/utils"
 import { useJobCreator } from "@/features/(organization)/jobs/hooks/use-job-creator"
 import { JobBasicInfoStep } from "./job-basic-info-step"
 import { JobSkillsStep } from "./job-skills-step"
@@ -28,14 +29,14 @@ export function JobCreatorWizard() {
   const steps = [
     { number: 1, title: "Basic Information", desc: "Title, Salary & Location" },
     { number: 2, title: "Skills & Description", desc: "Skills tagger & responsibilities" },
-    { number: 3, title: "Pipeline Setup", desc: "Custom interview rounds" },
-    { number: 4, title: "Review & Publish", desc: "Verify requisition & status" },
+    { number: 3, title: "Pipeline & Panel", desc: "Rounds & Interviewers" },
+    { number: 4, title: "Review & Publish", desc: "Requisition sign-off" },
   ]
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto py-4 px-2">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       {/* Wizard Header */}
-      <div>
+      <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Create Job Requisition</h1>
         <p className="text-sm text-muted-foreground">
           Define multi-round interview pipelines and automated candidate pre-screening rules.
@@ -51,20 +52,20 @@ export function JobCreatorWizard() {
           return (
             <div
               key={s.number}
-              className={`p-3 rounded-lg border flex items-center gap-3 transition-all ${isCurrent
-                  ? "border-primary bg-primary/5 text-foreground shadow-xs"
-                  : isCompleted
-                    ? "border-emerald-500/30 bg-emerald-500/5 text-foreground"
-                    : "border-border bg-card text-muted-foreground opacity-60"
-                }`}
+              className={cn(
+                "p-3 rounded-lg border flex items-center gap-3 transition-all",
+                isCurrent && "border-primary bg-primary/5 text-foreground shadow-xs",
+                isCompleted && "border-emerald-500/30 bg-emerald-500/5 text-foreground",
+                !isCurrent && !isCompleted && "border-border bg-card text-muted-foreground opacity-60"
+              )}
             >
               <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center font-semibold text-xs shrink-0 ${isCurrent
-                    ? "bg-primary text-primary-foreground"
-                    : isCompleted
-                      ? "bg-emerald-500 text-white"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center font-semibold text-xs shrink-0",
+                  isCurrent && "bg-primary text-primary-foreground",
+                  isCompleted && "bg-emerald-500 text-white",
+                  !isCurrent && !isCompleted && "bg-muted text-muted-foreground"
+                )}
               >
                 {isCompleted ? <Check className="w-4 h-4" /> : s.number}
               </div>

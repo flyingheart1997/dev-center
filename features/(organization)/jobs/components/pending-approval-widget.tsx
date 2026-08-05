@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tooltip } from "@/components/ui/tooltip"
-import { Clock, CheckCircle2, ArrowRight, User } from "lucide-react"
+import { Clock, CheckCircle2, ArrowRight, User, Settings } from "lucide-react"
 
 interface PendingApprovalJob {
   id: string
@@ -93,9 +93,8 @@ export function PendingApprovalWidget({
                       {job.title}
                     </h4>
                   </Tooltip>
-
                   <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground min-w-0">
-                    <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal truncate max-w-22.5 shrink-0">
+                    <Badge variant="outline" className="text-[9px] py-0 px-2 font-normal truncate max-w-22.5 shrink-0">
                       {job.departmentName}
                     </Badge>
                     <span>•</span>
@@ -110,30 +109,35 @@ export function PendingApprovalWidget({
                 </Badge>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
-                <Tooltip content="Review requisition configuration & setup steps">
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    className="h-7 text-[11px] px-2 font-medium text-muted-foreground hover:text-foreground"
-                    asChild
-                  >
-                    <Link href={`/jobs/${job.id}`}>
-                      Review Setup <ArrowRight className="w-3 h-3 ml-1 -rotate-45" />
-                    </Link>
-                  </Button>
-                </Tooltip>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Settings className="w-3 h-3" />Actions:
+                </span>
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
+                  <Tooltip content="Review requisition configuration & setup steps">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="h-7 text-[11px] px-2 font-medium text-muted-foreground hover:text-foreground"
+                      asChild
+                    >
+                      <Link href={`/jobs/${job.id}`}>
+                        Review Setup <ArrowRight className="w-3 h-3 ml-1 -rotate-45" />
+                      </Link>
+                    </Button>
+                  </Tooltip>
 
-                <Tooltip content="Approve and publish this requisition live immediately">
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => onApprove?.(job.id)}
-                    className="h-7 text-[11px] px-2.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
-                  >
-                    <CheckCircle2 className="w-3 h-3 mr-1" /> Approve & Publish
-                  </Button>
-                </Tooltip>
+                  <Tooltip content="Approve and publish this requisition live immediately">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => onApprove?.(job.id)}
+                      className="h-7 text-[11px] px-2.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                    >
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> Approve & Publish
+                    </Button>
+                  </Tooltip>
+                </div>
               </div>
             </div>
           ))

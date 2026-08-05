@@ -1,4 +1,4 @@
-import { JobCreatorWizard } from "@/features/(organization)/jobs/components/job-creator-wizard"
+import { JobCreatorWizard } from "@/features/(organization)/jobs/components/create-new-job/job-creator-wizard"
 
 export const metadata = {
   title: "New Job Requisition | Dev-Center",

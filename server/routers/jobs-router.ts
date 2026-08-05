@@ -176,9 +176,38 @@ export const jobsRouter = router({
               },
             },
           },
+          jobBoardPosts: true,
+          applications: {
+            include: {
+              candidate: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                      image: true,
+                    },
+                  },
+                },
+              },
+              currentRound: {
+                select: { id: true, title: true, orderIndex: true },
+              },
+              screeningResult: true,
+              offer: true,
+              interviews: {
+                include: {
+                  jobRound: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
           _count: {
             select: {
               applications: true,
+              rounds: true,
             },
           },
         },

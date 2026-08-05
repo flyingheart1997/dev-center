@@ -1,12 +1,13 @@
 import React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tooltip } from "@/components/ui/tooltip"
-import { Trophy, Sparkles, ArrowRight } from "lucide-react"
+import { Trophy, ArrowRight } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CandidateDetailModal } from "./candidate-detail-modal"
+import { CandidateAvatarHeader } from "./candidate-avatar-header"
+import { CandidateStatusBadge } from "./candidate-status-badge"
 
 interface TopMeritCandidatesWidgetProps {
   candidates?: Array<{
@@ -78,7 +79,6 @@ export function TopMeritCandidatesWidget({
         ) : (
           filteredCandidates.map((app, rank) => {
             const userName = app.candidate.user?.name || app.candidate.user?.email || "Candidate"
-            const initials = userName.substring(0, 2).toUpperCase()
             const score = app.screeningResult?.overallScore ?? null
 
             return (
@@ -86,45 +86,26 @@ export function TopMeritCandidatesWidget({
                 key={app.id}
                 className="p-3 rounded-lg border border-border/80 bg-card hover:bg-accent/40 transition-all flex items-center justify-between gap-3 group"
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="relative shrink-0">
-                    <Avatar className="h-10 w-10 border border-border shrink-0">
-                      <AvatarImage src={app.candidate.user?.image || undefined} alt={userName} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
-                      {rank + 1}
-                    </span>
-                  </div>
+                <div className="relative flex items-center min-w-0 flex-1">
+                  <span className="absolute -top-1 -left-1 z-10 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shadow-xs">
+                    {rank + 1}
+                  </span>
 
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <Tooltip content={userName}>
-                      <h4 className="font-bold text-xs text-foreground truncate min-w-0 group-hover:text-primary transition-colors">
-                        {userName}
-                      </h4>
-                    </Tooltip>
-                    <Tooltip content={app.job.title}>
-                      <p className="text-[11px] text-muted-foreground truncate min-w-0">
-                        {app.job.title}
-                      </p>
-                    </Tooltip>
-                    <div className="flex flex-wrap gap-1 pt-0.5">
-                      {app.candidate.skills.slice(0, 2).map((s, idx) => (
-                        <span key={idx} className="text-[9px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium truncate max-w-22.5">
-                          {s.skill.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                  <CandidateAvatarHeader
+                    name={userName}
+                    email={app.candidate.user?.email}
+                    image={app.candidate.user?.image}
+                    jobTitle={app.job.title}
+                    departmentName={app.job.department?.name || undefined}
+                  />
                 </div>
 
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
                   {score !== null && (
-                    <Badge variant="outline" className="text-xs font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                      <Sparkles className="w-3 h-3 mr-1" /> {score}%
-                    </Badge>
+                    <CandidateStatusBadge
+                      status="Top Merit"
+                      screeningScore={score}
+                    />
                   )}
 
                   <CandidateDetailModal applicationId={app.id}>

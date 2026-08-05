@@ -155,3 +155,8 @@ dev-center/
 * **NEVER** introduce arbitrary static inline widths (e.g. `sm:max-w-125`), custom border styles, or arbitrary background color overrides that break standard Light/Dark mode themes.
 * Build interfaces using modular, single-responsibility micro-components designed for multi-role reuse.
 
+### O. Strict Zero Prop-Drilling Architecture
+* **NEVER** drill props down multiple levels of feature subcomponents (e.g., passing `job`, `applications`, `rounds`, `approvals` through 3-4 component layers).
+* Feature-specific subcomponents MUST consume data directly from dedicated feature hooks (`features/<module>/hooks/*`), Zustand stores (`features/<module>/store/*`), or feature Context providers (`<FeatureProvider>`).
+* Props are ONLY allowed for atomic/generic reusable UI components (`components/ui/*`, e.g. `Button`, `Card`, `Badge`) or generic presentation wrappers that are reused across multiple different domains.
+

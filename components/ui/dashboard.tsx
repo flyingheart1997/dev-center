@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { Fragment, useState } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { GooeyInput } from "./gooey-input";
@@ -91,7 +91,6 @@ export function Dashboard({
             </Sidebar>
 
             <SidebarContent
-                links={links}
                 openProfileDialog={setProfileDialogOpen}
             >
                 {children}
@@ -247,18 +246,14 @@ export const LogoIcon = () => {
 };
 
 const SidebarContent = ({
-    links,
     children,
     openProfileDialog
 }: {
     children: React.ReactNode;
-    links: Array<{ label: string; href: string; icon: React.ReactNode }>;
     openProfileDialog: (open: boolean) => void
 }) => {
     const pathname = usePathname();
-    const routes = pathname.split("/");
-    const link = links[0];
-    const route = routes[2] || routes[1];
+    const routes = (pathname.split("/") ?? []).filter(route => route !== 'dashboard');
 
     return (
         <div className="flex flex-1 min-h-0 min-w-0 rounded-tl-2xl shadow-inner">
@@ -270,26 +265,37 @@ const SidebarContent = ({
                                 <BreadcrumbList>
                                     <BreadcrumbItem>
                                         <BreadcrumbLink asChild>
-                                            <Link href={link?.href || "/dashboard"}>
-                                                <span className={cn("font-medium text-lg hover:text-foreground hover:underline underline-offset-2 transition-colors")}>
-                                                    {link?.label || "Dashboard"}
+                                            <Link href={"/dashboard"}>
+                                                <span className={cn("hover:text-foreground hover:underline underline-offset-2 transition-colors")}>
+                                                    Dashboard
                                                 </span>
                                             </Link>
                                         </BreadcrumbLink>
                                     </BreadcrumbItem>
-                                    {route && route !== "dashboard" && <BreadcrumbSeparator />}
-                                    {route && route !== "dashboard" && (
-                                        <BreadcrumbItem>
-                                            <BreadcrumbLink asChild>
-                                                <span className="capitalize">{route.replace(/-/g, " ")}</span>
-                                            </BreadcrumbLink>
-                                        </BreadcrumbItem>
-                                    )}
+                                    {routes.map((route, index) => {
+                                        const active = index === routes.length - 1;
+                                        const link = active ? pathname : routes.slice(0, index + 1).join("/") ?? '/dashboard'
+                                        return (
+                                            <Fragment key={route}>
+                                                <BreadcrumbItem>
+                                                    <BreadcrumbLink asChild>
+                                                        <Link href={link}>
+                                                            <span className={cn("capitalize",
+                                                                active ? "text-foreground" : "text-muted-foreground hover:text-foreground transition-colors")}
+                                                            >
+                                                                {route.replace(/-/g, " ")}
+                                                            </span>
+                                                        </Link>
+                                                    </BreadcrumbLink>
+                                                </BreadcrumbItem>
+                                                {index < routes.length - 1 && <BreadcrumbSeparator />}
+                                            </Fragment>
+                                        )
+                                    })}
                                 </BreadcrumbList>
                             </Breadcrumb>
                         </div>
                         <div className="flex gap-4 items-center">
-                            <GooeyInput placeholder="Search..." />
                             <Tooltip content="Notifications">
                                 <Link href="/notifications" className="relative">
                                     <BellIcon className="h-5 w-5 text-neutral-700 dark:text-neutral-200 shrink-0" />

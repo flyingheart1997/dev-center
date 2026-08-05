@@ -93,8 +93,8 @@ export function TopPerformingJobsWidget({
             key={job.id}
             className="p-3 rounded-lg border border-border/80 bg-card hover:bg-accent/40 transition-all flex items-center justify-between gap-3 group"
           >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <span className="w-5 h-5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-bold flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <span className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-bold flex items-center justify-center shrink-0">
                 {rank + 1}
               </span>
 
@@ -106,7 +106,7 @@ export function TopPerformingJobsWidget({
                 </Tooltip>
 
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground min-w-0">
-                  <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal truncate max-w-22.5 shrink-0">
+                  <Badge variant="outline" className="text-[9px] py-0 px-2 font-normal truncate max-w-22.5 shrink-0">
                     {job.departmentName}
                   </Badge>
                   {job.avgAiScore && (

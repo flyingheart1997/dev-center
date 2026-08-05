@@ -13,6 +13,11 @@ interface JobsStoreState {
   searchQuery: string
   selectedDepartmentId: string | null
 
+  // Job Details View state (Zustand State)
+  detailsActiveTab: string
+  candidateSearch: string
+  candidateStatusFilter: string
+
   // Candidate Drawer state
   selectedApplicationId: string | null
   isCandidateDrawerOpen: boolean
@@ -31,6 +36,9 @@ interface JobsStoreState {
   setActiveStatusTab: (tab: JobStatus | "ALL") => void
   setSearchQuery: (query: string) => void
   setSelectedDepartmentId: (deptId: string | null) => void
+  setDetailsActiveTab: (tab: string) => void
+  setCandidateSearch: (query: string) => void
+  setCandidateStatusFilter: (filter: string) => void
   openCandidateDrawer: (applicationId: string) => void
   closeCandidateDrawer: () => void
   openCloneDialog: (jobId: string) => void
@@ -96,6 +104,9 @@ export const useJobsStore = create<JobsStoreState>((set) => ({
   activeStatusTab: "ALL",
   searchQuery: "",
   selectedDepartmentId: null,
+  detailsActiveTab: "candidates",
+  candidateSearch: "",
+  candidateStatusFilter: "ALL",
   selectedApplicationId: null,
   isCandidateDrawerOpen: false,
   cloneJobId: null,
@@ -113,6 +124,9 @@ export const useJobsStore = create<JobsStoreState>((set) => ({
   setActiveStatusTab: (tab) => set({ activeStatusTab: tab }),
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSelectedDepartmentId: (deptId) => set({ selectedDepartmentId: deptId }),
+  setDetailsActiveTab: (tab) => set({ detailsActiveTab: tab }),
+  setCandidateSearch: (query) => set({ candidateSearch: query }),
+  setCandidateStatusFilter: (filter) => set({ candidateStatusFilter: filter }),
   openCandidateDrawer: (applicationId) =>
     set({ selectedApplicationId: applicationId, isCandidateDrawerOpen: true }),
   closeCandidateDrawer: () => set({ isCandidateDrawerOpen: false, selectedApplicationId: null }),
